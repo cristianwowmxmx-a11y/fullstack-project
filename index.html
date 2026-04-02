@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Manager</title>
+    <style>
+        body{
+            font-family: Arial, sans-serif;
+            padding: 30px;
+            background-color: #f4f4f4;
+        }
+        h1{
+            color: #333;
+            margin-bottom:20px ;
+        }
+        input{
+            padding: 10px;
+            width: 250px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+        }
+        button{
+            padding: 10px 15px;
+            margin-left: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        button:hover{
+            background-color: #0056b3;
+        }
+        ul{
+            list-style:none;
+            padding: 0;
+            margin-top: 20px;
+        }
+        li{
+            background-color: white;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+</style>
+</head>
+<body>
+
+    <h1>Task Manager</h1>
+
+    <input type="text" id="taskInput" placeholder="Escribe una nueva tarea"> <!-- ID para JS -->
+
+    <button id="addTaskBtn">Agregar tareas</button> <!-- ID para JS -->
+
+    <ul id="taskList"> <!-- Lista donde aparecerán las tareas -->
+        <li>Estudiar JavaScript</li> <!-- Ejemplo -->
+        
+    </ul>
+<script>
+    const input=document.querySelector("#taskInput");
+    const button=document.querySelector("#addTaskBtn");
+    const list=document.querySelector("#taskList");
+    button.addEventListener("click",()=>{});
+</script>
+</body>
+</html>
