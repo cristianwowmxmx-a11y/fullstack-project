@@ -1,8 +1,10 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+const jwt = require("jsonwebtoken");
 import { PrismaClient } from "@prisma/client";
 
+const SECRET_KEY = "mi_clave_secreta";
 const app = express();
 const prisma = new PrismaClient();
 const PORT = Number(process.env.PORT) || 3000;
@@ -12,7 +14,54 @@ app.use(cors());
 
 // Permitir JSON
 app.use(express.json());
+app.post("/login", (req, res) => {
+  const { username, password } = req.body;
 
+  if (username === "admin" && password === "1234") {
+    const token = jwt.sign(
+      { username: username },
+      SECRET_KEY,
+      { expiresIn: "1h" }
+    );
+
+    return res.json({
+      message: "Login correcto",
+      token,
+    });
+  }
+
+  res.status(401).json({
+    error: "Credenciales incorrectas",
+  });
+});
+const verifyToken = (req: any, res: any, next: any) => {
+  const bearerHeader = req.headers["authorization"];
+
+  if (!bearerHeader) {
+    return res.status(403).json({
+      error: "Token requerido",
+    });
+  }
+
+  const token = bearerHeader.split(" ")[1];
+
+  jwt.verify(token, SECRET_KEY, (err: any, decoded: any) => {
+    if (err) {
+      return res.status(401).json({
+        error: "Token inválido",
+      });
+    }
+
+    req.user = decoded;
+    next();
+  });
+};
+app.get("/private", verifyToken, (req: any, res) => {
+  res.json({
+    message: "Acceso permitido",
+    user: req.user,
+  });
+});
 // GET - obtener todas las tareas
 app.get("/tasks", async (req, res) => {
   try {

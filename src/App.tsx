@@ -11,13 +11,15 @@ export interface Task {
   completed: boolean;
 }
 
+const API_URL = import.meta.env.VITE_API_URL;
+
 function App() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [taskToDelete, setTaskToDelete] = useState<number | null>(null);
 
   const fetchTasks = async () => {
     try {
-      const res = await fetch("http://localhost:3000/tasks");
+      const res = await fetch(`${API_URL}/tasks`);
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
@@ -38,7 +40,7 @@ function App() {
 
   const addTask = async (title: string) => {
     try {
-      const res = await fetch("http://localhost:3000/tasks", {
+      const res = await fetch(`${API_URL}/tasks`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -65,7 +67,7 @@ function App() {
     if (taskToDelete === null) return;
 
     try {
-      const res = await fetch(`http://localhost:3000/tasks/${taskToDelete}`, {
+      const res = await fetch(`${API_URL}/tasks/${taskToDelete}`, {
         method: "DELETE",
       });
 
@@ -84,7 +86,7 @@ function App() {
 
   const toggleTask = async (id: number, completed: boolean) => {
     try {
-      const res = await fetch(`http://localhost:3000/tasks/${id}`, {
+      const res = await fetch(`${API_URL}/tasks/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
