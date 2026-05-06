@@ -497,5 +497,20 @@ prisma.book.count(),
     libros: librosTotal,
   });
 });
+app.get("/day-notes", auth, async (req, res) => {
+  const userId = (req as any).user.id;
+  res.json(await prisma.dayNote.findMany({ where: { userId }, orderBy: { fecha: "asc" } }));
+});
+
+app.post("/day-notes", auth, async (req, res) => {
+  const userId = (req as any).user.id;
+  const { text, fecha } = req.body;
+  res.json(await prisma.dayNote.create({ data: { text, fecha, userId } }));
+});
+
+app.delete("/day-notes/:id", auth, async (req, res) => {
+  await prisma.dayNote.delete({ where: { id: Number(req.params.id) } });
+  res.json({ ok: true });
+});
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

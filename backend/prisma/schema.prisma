@@ -13,6 +13,7 @@ model User {
   password String
   role     String @default("admin")
   notes    Note[]
+   dayNotes DayNote[]
 }
 
 model Note {
@@ -134,4 +135,12 @@ model Entrega {
   magazine     Magazine? @relation(fields: [magazineId], references: [id])
   bookId       Int?
   book         Book?     @relation(fields: [bookId], references: [id])
+}
+model DayNote {
+  id        Int      @id @default(autoincrement())
+  text      String
+  fecha     String
+  createdAt DateTime @default(now())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
 }
