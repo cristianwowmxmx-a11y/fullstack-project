@@ -112,11 +112,9 @@ function getServicios(c: Client) {
 function exportPDF(clients: Client[], monthLabel: string) {
   const rows = clients.map((c, i) => `
     <tr style="background: ${i % 2 === 0 ? "#f8fafc" : "#ffffff"}">
+      <td>${c.nombreCompleto || "—"}</td>
       <td>
-        <div style="display:flex; align-items:center; gap:10px;">
-          ${c.fotografia ? `<img src="${c.fotografia}" style="width:50px;height:50px;object-fit:cover;border-radius:50%;border:2px solid #3b82f6;" />` : "<span style='color:#94a3b8'>Sin foto</span>"}
-          ${c.nombreCompleto || "—"}
-        </div>
+        ${c.fotografia ? `<img src="${c.fotografia}" style="width:50px;height:50px;object-fit:cover;border-radius:50%;border:2px solid #3b82f6;cursor:pointer;" onclick="window.open('${c.fotografia}','_blank')" />` : "<span style='color:#94a3b8'>Sin foto</span>"}
       </td>
       <td>
         ${c.fotoCarnet ? `<img src="${c.fotoCarnet}" style="width:80px;height:50px;object-fit:cover;border-radius:4px;border:2px solid #64748b;cursor:pointer;" onclick="window.open('${c.fotoCarnet}','_blank')" title="Click para ver completo" />` : "—"}
@@ -150,13 +148,14 @@ function exportPDF(clients: Client[], monthLabel: string) {
       <thead>
         <tr>
           <th>Nombre</th>
-          <th>Carnet (foto)</th>
-          <th>C.I.</th>
-          <th>Dirección</th>
-          <th>Fecha Nacimiento</th>
-          <th>Departamento</th>
-          <th>Celular</th>
-          <th>Email</th>
+<th>Foto</th>
+<th>Carnet</th>
+<th>C.I.</th>
+<th>Dirección</th>
+<th>Fecha Nacimiento</th>
+<th>Departamento</th>
+<th>Celular</th>
+<th>Email</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
@@ -468,6 +467,7 @@ function Clients() {
                 { label: "Fecha Nacimiento", value: selected.fechaNacimiento },
                 { label: "Extensión", value: selected.extension },
                 { label: "Profesión", value: selected.profesion },
+              
                 { label: "Celular", value: selected.celular },
                 { label: "Email", value: selected.email },
               ].map(item => (
