@@ -14,7 +14,8 @@ function Publicaciones() {
   const trackRef = useRef<HTMLDivElement>(null);
   const [isPaused, setIsPaused] = useState(false);
   const offsetRef = useRef(0);
-const animRef = useRef<number>(0);  // ✅ Correcto
+ {/* const animRef = useRef<number>();//     ......*/}
+  const animRef = useRef<number>(0);  // ✅ Correcto
   const speedRef = useRef(0.5);
 
   // Duplicamos las imágenes para el loop infinito

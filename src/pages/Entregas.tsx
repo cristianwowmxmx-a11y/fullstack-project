@@ -4,8 +4,7 @@ import { useWindowSize } from "../hooks/useWindowSize";
 import { useMesActual } from "../hooks/useMesActual";
 import NavegadorMes from "../components/NavegadorMes";
 
-const API_URL = "http://localhost:3000";
-
+const API_URL = "https://taskmanager-backend-ewud.onrender.com";
 interface ClienteTask {
   id: number;
   tipo: string;

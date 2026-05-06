@@ -6,7 +6,7 @@ interface Person {
   email?: string;
 }
 
-const API_URL = "http://localhost:3000";
+const API_URL = "https://taskmanager-backend-ewud.onrender.com";
 
 function Persons() {
   const [persons, setPersons] = useState<Person[]>([]);
