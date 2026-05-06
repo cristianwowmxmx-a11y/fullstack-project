@@ -67,7 +67,7 @@ function Admin() {
   const loadStats = async () => {
     setLoadingStats(true);
     try {
-      const res = await fetch("http://localhost:3000/stats", {
+const res = await fetch(`${import.meta.env.VITE_API_URL}/stats`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setStats(await res.json());
