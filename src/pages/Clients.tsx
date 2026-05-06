@@ -30,6 +30,8 @@ interface Client {
   edicionesHechas: number;
   pideFundador: boolean;
   notasServicio: string | null;
+   fotografia: string | null;
+  fotoCarnet: string | null;
 }
 
 function Spinner() {
@@ -110,7 +112,15 @@ function getServicios(c: Client) {
 function exportPDF(clients: Client[], monthLabel: string) {
   const rows = clients.map((c, i) => `
     <tr style="background: ${i % 2 === 0 ? "#f8fafc" : "#ffffff"}">
-      <td>${c.nombreCompleto || "—"}</td>
+      <td>
+        <div style="display:flex; align-items:center; gap:10px;">
+          ${c.fotografia ? `<img src="${c.fotografia}" style="width:50px;height:50px;object-fit:cover;border-radius:50%;border:2px solid #3b82f6;" />` : "<span style='color:#94a3b8'>Sin foto</span>"}
+          ${c.nombreCompleto || "—"}
+        </div>
+      </td>
+      <td>
+        ${c.fotoCarnet ? `<img src="${c.fotoCarnet}" style="width:80px;height:50px;object-fit:cover;border-radius:4px;border:2px solid #64748b;cursor:pointer;" onclick="window.open('${c.fotoCarnet}','_blank')" title="Click para ver completo" />` : "—"}
+      </td>
       <td>${c.ci || "—"}</td>
       <td>${c.direccion || "—"}</td>
       <td>${c.fechaNacimiento || "—"}</td>
@@ -127,9 +137,8 @@ function exportPDF(clients: Client[], monthLabel: string) {
       h1 { color: #1e3a5f; }
       table { width: 100%; border-collapse: collapse; font-size: 12px; }
       th { background: #1e3a5f; color: white; padding: 10px 12px; text-align: left; }
-      td { padding: 9px 12px; border-bottom: 1px solid #e2e8f0; cursor: pointer; }
-      td:hover { background: #dbeafe !important; }
-      .copied { background: #dcfce7 !important; }
+      td { padding: 9px 12px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
+      tr:hover td { background: #dbeafe !important; }
       .toast { position: fixed; bottom: 24px; right: 24px; background: #22c55e; color: white; padding: 10px 20px; border-radius: 8px; font-size: 14px; display: none; }
     </style>
   </head>
@@ -140,6 +149,7 @@ function exportPDF(clients: Client[], monthLabel: string) {
       <thead>
         <tr>
           <th>Nombre</th>
+          <th>Carnet (foto)</th>
           <th>C.I.</th>
           <th>Dirección</th>
           <th>Fecha Nacimiento</th>
@@ -152,28 +162,11 @@ function exportPDF(clients: Client[], monthLabel: string) {
     </table>
     <div class="toast" id="toast">✅ Copiado</div>
     <p style="margin-top:20px;font-size:11px;color:#94a3b8">
-      💡 Haz click en cualquier celda para copiar su contenido
+      💡 Haz click en la foto del carnet para verla completa
     </p>
     <p style="margin-top:4px;font-size:11px;color:#94a3b8">
-      Asociacion de Escritores Vanguardistas 3.0  · ${new Date().getFullYear()}
+      Asociacion de Escritores Vanguardistas 3.0 · ${new Date().getFullYear()}
     </p>
-    <script>
-      document.querySelectorAll('td').forEach(td => {
-        td.addEventListener('click', function() {
-          const text = this.innerText;
-          if (text === '—') return;
-          navigator.clipboard.writeText(text).then(() => {
-            this.classList.add('copied');
-            const toast = document.getElementById('toast');
-            toast.style.display = 'block';
-            setTimeout(() => {
-              this.classList.remove('copied');
-              toast.style.display = 'none';
-            }, 1500);
-          });
-        });
-      });
-    </script>
   </body></html>`;
 
   const win = window.open("", "_blank");
