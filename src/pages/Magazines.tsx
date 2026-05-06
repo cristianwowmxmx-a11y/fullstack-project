@@ -199,7 +199,7 @@ const subirArchivo = async (magId: number, file: File) => {
               <p style={{ color: "#64748b", fontSize: 12, marginBottom: 10, textTransform: "uppercase", letterSpacing: 1 }}>📎 Archivo de la Revista</p>
               {selected.archivoUrl ? (
                 <div>
-                  <p style={{ color: "#22c55e", fontSize: 13, marginBottom: 8 }}>✅ Archivo subido correctamente</p>
+             <p style={{ color: "#22c55e", fontSize: 13, marginBottom: 8 }}>✅ Archivo subido</p>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     <a href={selected.archivoUrl} target="_blank" rel="noreferrer"
                       style={{ background: "#22c55e", border: "none", padding: "8px 16px", borderRadius: 8, color: "white", cursor: "pointer", fontWeight: "bold", fontSize: 13, textDecoration: "none" }}>

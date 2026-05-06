@@ -9,7 +9,9 @@ import Notes from "./Notes";
 import Clients from "./Clients";
 import Entregas from "./Entregas";
 import GlobalSearch from "../components/GlobalSearch";
-const API_URL = "https://taskmanager-backend-ewud.onrender.com";
+
+import.meta.env.VITE_API_URL
+
 interface Stats {
   clientes: {
     total: number; pendientes: number; formularioLlenado: number;
