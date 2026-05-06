@@ -133,14 +133,15 @@ function exportPDF(clients: Client[], monthLabel: string) {
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
     <title>Reporte ${monthLabel}</title>
     <style>
-      body { font-family: Arial, sans-serif; padding: 30px; color: #1e293b; }
-      h1 { color: #1e3a5f; }
-      table { width: 100%; border-collapse: collapse; font-size: 12px; }
-      th { background: #1e3a5f; color: white; padding: 10px 12px; text-align: left; }
-      td { padding: 9px 12px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
-      tr:hover td { background: #dbeafe !important; }
-      .toast { position: fixed; bottom: 24px; right: 24px; background: #22c55e; color: white; padding: 10px 20px; border-radius: 8px; font-size: 14px; display: none; }
-    </style>
+  body { font-family: Arial, sans-serif; padding: 30px; color: #1e293b; }
+  h1 { color: #1e3a5f; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { background: #1e3a5f; color: white; padding: 10px 12px; text-align: left; }
+  td { padding: 9px 12px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
+  .copied { background: #dcfce7 !important; }
+  td:not(:has(img)):hover { background: #dbeafe !important; cursor: pointer; }
+  .toast { position: fixed; bottom: 24px; right: 24px; background: #22c55e; color: white; padding: 10px 20px; border-radius: 8px; font-size: 14px; display: none; }
+</style>
   </head>
   <body>
     <h1>📋 Reporte — ${monthLabel}</h1>
@@ -162,11 +163,30 @@ function exportPDF(clients: Client[], monthLabel: string) {
     </table>
     <div class="toast" id="toast">✅ Copiado</div>
     <p style="margin-top:20px;font-size:11px;color:#94a3b8">
-      💡 Haz click en la foto del carnet para verla completa
+      💡 Haz click en cualquier celda para copiar su contenido · Haz click en la foto del carnet para verla completa
     </p>
     <p style="margin-top:4px;font-size:11px;color:#94a3b8">
       Asociacion de Escritores Vanguardistas 3.0 · ${new Date().getFullYear()}
     </p>
+    <script>
+      document.querySelectorAll('td').forEach(td => {
+        if (td.querySelector('img')) return;
+        td.style.cursor = 'pointer';
+        td.addEventListener('click', function() {
+          const text = this.innerText.trim();
+          if (!text || text === '—') return;
+          navigator.clipboard.writeText(text).then(() => {
+            this.classList.add('copied');
+            const toast = document.getElementById('toast');
+            toast.style.display = 'block';
+            setTimeout(() => {
+              this.classList.remove('copied');
+              toast.style.display = 'none';
+            }, 1500);
+          });
+        });
+      });
+    </script>
   </body></html>`;
 
   const win = window.open("", "_blank");
