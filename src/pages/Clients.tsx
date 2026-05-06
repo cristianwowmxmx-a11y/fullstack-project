@@ -414,7 +414,30 @@ function Clients() {
                 {isExpired(selected.expiresAt) ? "⚠️ Link expirado" : `⏳ Expira en ${getDaysLeft(selected.expiresAt)} día(s)`}
               </p>
             </div>
-
+{/* FOTOS */}
+{(selected.fotografia || selected.fotoCarnet) && (
+  <div style={{ display: "flex", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
+    {selected.fotografia && (
+      <div style={{ background: "#0f172a", padding: 14, borderRadius: 8, textAlign: "center" }}>
+        <p style={{ color: "#64748b", fontSize: 11, marginBottom: 8, textTransform: "uppercase" }}>Foto Personal</p>
+        <img src={selected.fotografia} alt="foto"
+          style={{ width: 100, height: 100, objectFit: "cover", borderRadius: "50%", border: "3px solid #3b82f6", cursor: "pointer" }}
+          onClick={() => window.open(selected.fotografia!, "_blank")}
+        />
+      </div>
+    )}
+    {selected.fotoCarnet && (
+      <div style={{ background: "#0f172a", padding: 14, borderRadius: 8, textAlign: "center" }}>
+        <p style={{ color: "#64748b", fontSize: 11, marginBottom: 8, textTransform: "uppercase" }}>Foto Carnet</p>
+        <img src={selected.fotoCarnet} alt="carnet"
+          style={{ width: 140, height: 100, objectFit: "cover", borderRadius: 8, border: "3px solid #64748b", cursor: "pointer" }}
+          onClick={() => window.open(selected.fotoCarnet!, "_blank")}
+        />
+        <p style={{ color: "#64748b", fontSize: 10, marginTop: 4 }}>Click para ver completo</p>
+      </div>
+    )}
+  </div>
+)}
             {/* DATOS */}
             <h3 style={{ marginBottom: 16, color: "#94a3b8", fontSize: 13, textTransform: "uppercase", letterSpacing: 1 }}>Datos Personales</h3>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: 12, marginBottom: 24 }}>
