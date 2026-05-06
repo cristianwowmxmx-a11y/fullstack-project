@@ -1,285 +1,110 @@
-.app-background {
+/* Estilos globales para resetear y establecer una base consistente */
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
   min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: linear-gradient(135deg, #64748b, #94a3b8, #475569);
-  padding: 30px 16px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #0f172a; /* Color de fondo base de tu aplicación */
+  color: white; /* Color de texto base */
+  box-sizing: border-box; /* Global box-sizing */
 }
 
-.app-container {
-  width: 100%;
-  max-width: 760px;
-  background: rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border-radius: 24px;
-  padding: 32px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.16);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+*, *::before, *::after {
+  box-sizing: inherit; /* Hereda box-sizing */
 }
 
-.app-title {
-  text-align: center;
-  color: #ffffff;
-  font-size: 2.4rem;
-  font-weight: 800;
-  margin-bottom: 8px;
+/* Estilos para el scrollbar (personalizado y más estético) */
+/* Webkit (Chrome, Safari) */
+::-webkit-scrollbar {
+  width: 8px; /* Ancho del scrollbar vertical */
+  height: 8px; /* Altura del scrollbar horizontal */
 }
 
-.app-subtitle {
-  text-align: center;
-  color: rgba(255, 255, 255, 0.82);
-  margin-bottom: 28px;
-  font-size: 1rem;
+::-webkit-scrollbar-track {
+  background: #1e293b; /* Color de la pista del scrollbar */
+  border-radius: 10px;
 }
 
-.task-input-container {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 24px;
+::-webkit-scrollbar-thumb {
+  background: #3b82f6; /* Color del "pulgar" del scrollbar */
+  border-radius: 10px;
 }
 
-.task-input {
-  flex: 1;
-  padding: 14px 16px;
-  border: none;
-  outline: none;
-  border-radius: 14px;
-  font-size: 1rem;
-  background: rgba(255, 255, 255, 0.92);
-  color: #1e293b;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+::-webkit-scrollbar-thumb:hover {
+  background: #60a5fa; /* Color del "pulgar" al pasar el ratón */
 }
 
-.task-input::placeholder {
-  color: #6b7280;
+/* Firefox */
+html {
+  scrollbar-width: thin; /* "auto" o "none" */
+  scrollbar-color: #3b82f6 #1e293b; /* thumb color track color */
 }
 
-.task-list {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+/* -------------------------------------- */
+/* ESTILOS ESPECÍFICOS PARA ADMIN.TSX */
+/* -------------------------------------- */
+
+/* Sidebar (escritorio por defecto) */
+.sidebar {
+  transform: translateX(0); /* Visible por defecto en escritorio */
 }
 
-.task-card {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 18px;
-  padding: 16px 18px;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.06);
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
+/* Menú hamburguesa (oculto por defecto en escritorio) */
+.menu-button {
+  display: none;
 }
 
-.task-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.10);
+/* Overlay (oculto por defecto en escritorio) */
+.sidebar-overlay {
+  display: none;
 }
 
-.task-info {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex: 1;
-}
-
-.task-title {
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: #1e293b;
-  word-break: break-word;
-}
-
-.task-title.completed {
-  text-decoration: line-through;
-  color: #94a3b8;
-}
-
-.task-status {
-  font-size: 0.88rem;
-  font-weight: 600;
-}
-
-.task-status.done {
-  color: #475569;
-}
-
-.task-status.pending {
-  color: #64748b;
-}
-
-.task-actions {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-
-.btn {
-  border: none;
-  border-radius: 12px;
-  padding: 10px 14px;
-  font-size: 0.95rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.18s ease;
-  color: white;
-}
-
-.btn:hover {
-  transform: translateY(-1px);
-  opacity: 0.95;
-}
-
-.btn-add {
-  background: linear-gradient(135deg, #64748b, #475569);
-}
-
-.btn-success {
-  background: linear-gradient(135deg, #94a3b8, #64748b);
-}
-
-.btn-warning {
-  background: linear-gradient(135deg, #78716c, #57534e);
-}
-
-.btn-delete {
-  background: linear-gradient(135deg, #6b7280, #4b5563);
-}
-
-.empty-state {
-  text-align: center;
-  color: white;
-  font-size: 1rem;
-  padding: 20px;
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 16px;
-}
-
-@media (max-width: 640px) {
-  .app-container {
-    padding: 22px;
+/* Media query para tabletas y móviles (pantallas de hasta 768px de ancho) */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed; /* Ahora es fijo, no sticky */
+    left: 0;
+    top: 0;
+    height: 100vh;
+    width: 240px; /* Mantiene el ancho */
+    transform: translateX(-100%); /* Oculto por defecto en móviles */
+    box-shadow: 2px 0 10px rgba(0,0,0,0.5); /* Sombra para diferenciarlo */
   }
 
-  .app-title {
-    font-size: 2rem;
+  .sidebar-open {
+    transform: translateX(0); /* Visible cuando la clase sidebar-open está presente */
   }
 
-  .task-input-container {
-    flex-direction: column;
+  .menu-button {
+    display: block; /* Muestra el botón hamburguesa */
   }
 
-  .task-card {
-    flex-direction: column;
-    align-items: flex-start;
+  .sidebar-overlay {
+    display: block; /* Muestra el overlay */
   }
 
-  .task-actions {
-    width: 100%;
+  .main-content {
+    /* Ajusta el padding del contenido principal en pantallas pequeñas */
+    padding: 20px;
   }
 
-  .task-actions .btn {
-    flex: 1;
+  /* Grid del panel: 2 columnas en tabletas */
+  .panel-grid {
+    grid-template-columns: repeat(2, 1fr) !important; /* Forzar 2 columnas */
   }
 }
 
-.progress-box {
-  margin-bottom: 22px;
-  background: rgba(255, 255, 255, 0.12);
-  padding: 16px;
-  border-radius: 18px;
-}
-
-.progress-header {
-  display: flex;
-  justify-content: space-between;
-  color: white;
-  font-weight: 700;
-  margin-bottom: 10px;
-}
-
-.progress-bar {
-  width: 100%;
-  height: 14px;
-  background: rgba(255, 255, 255, 0.18);
-  border-radius: 50px;
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(135deg, #94a3b8, #64748b);
-  border-radius: 50px;
-  transition: width 0.4s ease;
-}
-
-.progress-text {
-  margin-top: 10px;
-  color: white;
-  font-size: 0.95rem;
-}
-
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(15, 23, 42, 0.45);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 999;
-}
-
-.modal-box {
-  width: 420px;
-  max-width: 90%;
-  background: white;
-  border-radius: 22px;
-  padding: 30px;
-  text-align: center;
-  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.18);
-  animation: modalFade 0.25s ease;
-}
-
-.modal-box h2 {
-  font-size: 1.8rem;
-  color: #1e293b;
-  margin-bottom: 14px;
-}
-
-.modal-box p {
-  color: #64748b;
-  font-size: 1.05rem;
-  margin-bottom: 24px;
-}
-
-.modal-buttons {
-  display: flex;
-  justify-content: center;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-
-@keyframes modalFade {
-  from {
-    opacity: 0;
-    transform: scale(0.85);
+/* Media query para móviles pequeños (pantallas de hasta 480px de ancho) */
+@media (max-width: 480px) {
+  .main-content {
+    padding: 15px; /* Reduce un poco más el padding en móviles muy pequeños */
   }
 
-  to {
-    opacity: 1;
-    transform: scale(1);
+  /* Grid del panel: 1 columna en móviles pequeños */
+  .panel-grid {
+    grid-template-columns: repeat(1, 1fr) !important; /* Forzar 1 columna */
   }
-}
-.footer {
-  margin-top: 24px;
-  text-align: center;
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 0.95rem;
-  padding-top: 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
 }

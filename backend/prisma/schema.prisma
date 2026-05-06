@@ -7,9 +7,131 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id       Int    @id @default(autoincrement())
+  username String @unique
+  password String
+  role     String @default("admin")
+  notes    Note[]
+}
+
+model Note {
+  id        Int      @id @default(autoincrement())
+  text      String
+  createdAt DateTime @default(now())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+}
+
 model Task {
   id        Int      @id @default(autoincrement())
   title     String
   completed Boolean  @default(false)
   createdAt DateTime @default(now())
+}
+
+model ClienteTask {
+  id          Int      @id @default(autoincrement())
+  tipo        String
+  descripcion String
+  completada  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  clienteId   Int
+  cliente     Client   @relation(fields: [clienteId], references: [id])
+}
+
+model Person {
+  id               Int        @id @default(autoincrement())
+  name             String
+  email            String?
+  articlesAuthored Article[]  @relation("ArticleAuthors")
+  magazinesDir     Magazine[] @relation("MagazineDirector")
+  books            Book[]     @relation("BookAuthor")
+}
+
+model Magazine {
+  id         Int       @id @default(autoincrement())
+  title      String
+  directorId Int
+  notas      String?
+  archivoUrl String?
+  clienteId  Int?
+  createdAt  DateTime  @default(now())
+  director   Person    @relation("MagazineDirector", fields: [directorId], references: [id])
+  cliente    Client?   @relation(fields: [clienteId], references: [id])
+  articles   Article[]
+  entregas   Entrega[]
+}
+
+model Article {
+  id         Int      @id @default(autoincrement())
+  title      String
+  magazineId Int
+  magazine   Magazine @relation(fields: [magazineId], references: [id])
+  authors    Person[] @relation("ArticleAuthors")
+}
+
+model Book {
+  id         Int       @id @default(autoincrement())
+  title      String
+  authorId   Int
+  notas      String?
+  archivoUrl String?
+  clienteId  Int?
+  createdAt  DateTime  @default(now())
+  author     Person    @relation("BookAuthor", fields: [authorId], references: [id])
+  cliente    Client?   @relation(fields: [clienteId], references: [id])
+  entregas   Entrega[]
+}
+
+model Project {
+  id          Int    @id @default(autoincrement())
+  title       String
+  description String
+  imageUrl    String
+}
+
+model Client {
+  id              Int           @id @default(autoincrement())
+  token           String        @unique
+  expiresAt       DateTime
+  status          String        @default("pendiente")
+  createdAt       DateTime      @default(now())
+  ci              String?
+  nombreCompleto  String?
+  direccion       String?
+  fechaNacimiento String?
+  extension       String?
+  profesion       String?
+  celular         String?
+  email           String?
+  fotografia      String?
+fotoCarnet      String?
+  pideLibros      Boolean       @default(false)
+  cantLibros      Int           @default(0)
+  librosHechos    Int           @default(0)
+  pideArticulos   Boolean       @default(false)
+  cantArticulos   Int           @default(0)
+  articulosHechos Int           @default(0)
+  pideDirector    Boolean       @default(false)
+  edicionesHechas Int           @default(0)
+  pideFundador    Boolean       @default(false)
+  notasServicio   String?
+  entregas        Entrega[]
+  magazines       Magazine[]
+  books           Book[]
+  clienteTasks    ClienteTask[]
+}
+
+model Entrega {
+  id           Int       @id @default(autoincrement())
+  estado       String    @default("pendiente")
+  fechaEntrega DateTime?
+  createdAt    DateTime  @default(now())
+  clienteId    Int?
+  cliente      Client?   @relation(fields: [clienteId], references: [id])
+  magazineId   Int?
+  magazine     Magazine? @relation(fields: [magazineId], references: [id])
+  bookId       Int?
+  book         Book?     @relation(fields: [bookId], references: [id])
 }
