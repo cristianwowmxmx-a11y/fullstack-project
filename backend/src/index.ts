@@ -512,5 +512,35 @@ app.delete("/day-notes/:id", auth, async (req, res) => {
   await prisma.dayNote.delete({ where: { id: Number(req.params.id) } });
   res.json({ ok: true });
 });
+app.get("/clients/:id/libro-detalles", auth, async (req, res) => {
+  res.json(await prisma.libroDetalle.findMany({
+    where: { clienteId: Number(req.params.id) },
+    orderBy: { numeroLibro: "asc" },
+  }));
+});
 
+app.post("/clients/form/:token/libro-detalles", async (req, res) => {
+  const client = await prisma.client.findUnique({ where: { token: req.params.token } });
+  if (!client) return res.status(404).json({ error: "Link no válido" });
+  if (new Date() > client.expiresAt) return res.status(410).json({ error: "Link expirado" });
+
+  const { detalles } = req.body;
+
+  await prisma.libroDetalle.deleteMany({ where: { clienteId: client.id } });
+
+  if (detalles && detalles.length > 0) {
+    await prisma.libroDetalle.createMany({
+      data: detalles.map((d: any) => ({
+        clienteId: client.id,
+        numeroLibro: d.numeroLibro,
+        categoria: d.categoria,
+        isbn: d.isbn,
+        senapi: d.senapi,
+        prioridad: d.prioridad,
+      })),
+    });
+  }
+
+  res.json({ ok: true });
+});
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
