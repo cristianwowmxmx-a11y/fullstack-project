@@ -39,6 +39,7 @@ model ClienteTask {
   createdAt   DateTime @default(now())
   clienteId   Int
   cliente     Client   @relation(fields: [clienteId], references: [id])
+  
 }
 
 model Person {
@@ -122,6 +123,7 @@ fotoCarnet      String?
   magazines       Magazine[]
   books           Book[]
   clienteTasks    ClienteTask[]
+    libroDetalles   LibroDetalle[]
 }
 
 model Entrega {

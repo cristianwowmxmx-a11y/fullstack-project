@@ -257,7 +257,25 @@ function Clients() {
     setCopiedId(c.id);
     setTimeout(() => setCopiedId(null), 2000);
   };
+const copiarSenapi = async (cliente: Client) => {
 
+  const datos = {
+    nombreCompleto: cliente.nombreCompleto,
+    ci: cliente.ci,
+    extension: cliente.extension,
+    direccion: cliente.direccion,
+    celular: cliente.celular,
+    email: cliente.email,
+    fechaNacimiento: cliente.fechaNacimiento,
+  };
+
+  await navigator.clipboard.writeText(
+    JSON.stringify(datos)
+  );
+
+  alert("Datos copiados para SENAPI");
+
+};
   const regenerar = async (id: number) => {
     setRegeneratingId(id);
     try {
@@ -499,6 +517,7 @@ function Clients() {
 
             <button onClick={() => remove(selected)} disabled={deletingId === selected.id} style={{ ...btnRed, display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
               {deletingId === selected.id ? <Spinner /> : "🗑 Eliminar cliente"}
+              
             </button>
           </div>
         </div>
@@ -591,14 +610,16 @@ function Clients() {
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                   <thead>
                     <tr style={{ background: "#1e293b" }}>
-                      {["Nombre", "C.I.", "Ext.", "Email", "Celular", "Profesión", "Servicios", "Progreso", "Estado"].map(h => (
+                      {["Nombre", "C.I.", "Ext.", "Email", "Celular", "Profesión", "Servicios", "Progreso", "Estado", "SENAPI"].map(h => (
                         <th key={h} style={{ padding: "10px 14px", textAlign: "left", color: "#64748b", fontWeight: "bold", fontSize: 11, textTransform: "uppercase", whiteSpace: "nowrap" }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
+
                     {clientesMes.map((c, i) => {
                       const statusColors = getStatusColor(c.status);
+                  
                       return (
                         <tr key={c.id} onClick={() => setSelected(c)} style={{ background: i % 2 === 0 ? "#0f172a" : "#1e293b", cursor: "pointer" }}
                           onMouseEnter={e => e.currentTarget.style.background = "#334155"}
@@ -623,6 +644,28 @@ function Clients() {
                               {c.status}
                             </span>
                           </td>
+                          <td style={tdStyle}>
+
+  <button
+    onClick={(e) => {
+      e.stopPropagation();
+      copiarSenapi(c);
+    }}
+    style={{
+      padding: "6px 10px",
+      background: "#16a34a",
+      color: "white",
+      border: "none",
+      borderRadius: "8px",
+      cursor: "pointer",
+      fontSize: 12,
+      fontWeight: "bold",
+    }}
+  >
+    Copiar
+  </button>
+
+</td>
                         </tr>
                       );
                     })}
