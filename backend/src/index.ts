@@ -371,65 +371,35 @@ app.post(
   }
 );
 
-// ─── ACTUALIZACIÓN DEL FORMULARIO DEL CLIENTE (CORREGIDA) ────────────────────
+// ─── ACTUALIZACIÓN DEL FORMULARIO DEL CLIENTE ────────────────────────────────
 app.put("/clients/form/:token", async (req, res) => {
-  const client = await prisma.client.findUnique({
-    where: { token: req.params.token },
-  });
+  const client = await prisma.client.findUnique({ where: { token: req.params.token } });
   if (!client) return res.status(404).json({ error: "Link no válido" });
   if (new Date() > client.expiresAt) return res.status(410).json({ error: "Este link ha expirado" });
 
   const {
-    ci,
-    nombres,
-    apellidoPaterno,
-    apellidoMaterno,
-    sexo,
-    ciudad,
-    nombreCompleto,
-    direccion,
-    fechaNacimiento,
-    extension,
-    profesion,
-    celular,
-    email,
-    pideLibros,
-    cantLibros,
-    pideArticulos,
-    cantArticulos,
-    pideDirector,
-    pideFundador,
-    notasServicio,
+    ci, nombres, apellidoPaterno, apellidoMaterno, sexo, ciudad,
+    nombreCompleto, direccion, fechaNacimiento, extension,
+    profesion, celular, email, pideLibros, cantLibros,
+    pideArticulos, cantArticulos, pideDirector, pideFundador, notasServicio,
   } = req.body;
 
   const updated = await prisma.client.update({
     where: { token: req.params.token },
     data: {
-      ci,
-      nombres,
-      apellidoPaterno,
-      apellidoMaterno,
-      sexo,
-      ciudad,
-      nombreCompleto,
-      direccion,
-      fechaNacimiento,
-      extension,
-      profesion,
-      celular,
-      email,
+      ci, nombres, apellidoPaterno, apellidoMaterno, sexo, ciudad,
+      nombreCompleto, direccion, fechaNacimiento, extension,
+      profesion, celular, email,
       pideLibros,
       cantLibros: pideLibros ? cantLibros : 0,
       pideArticulos,
       cantArticulos: pideArticulos ? cantArticulos : 0,
-      pideDirector,
-      pideFundador,
-      notasServicio,
+      pideDirector, pideFundador, notasServicio,
       status: "formulario llenado",
     },
   });
 
-  // ── Recrear tareas y entrega ──────────────────────────────────────────────
+  // ── Recrear tareas y entrega ──────────────────────────────
   await prisma.clienteTask.deleteMany({ where: { clienteId: updated.id } });
   await prisma.entrega.deleteMany({ where: { clienteId: updated.id } });
 
@@ -515,11 +485,28 @@ app.put("/clients/:id/regenerar", auth, async (req, res) => {
   );
 });
 
+// ✅ RUTA DE ELIMINACIÓN CORREGIDA
 app.delete("/clients/:id", auth, async (req, res) => {
   const id = Number(req.params.id);
+
+  // 1. Desvincula revistas y libros (sin borrarlos)
+  await prisma.magazine.updateMany({
+    where: { clienteId: id },
+    data: { clienteId: null },
+  });
+  await prisma.book.updateMany({
+    where: { clienteId: id },
+    data: { clienteId: null },
+  });
+
+  // 2. Elimina dependencias directas
+  await prisma.libroDetalle.deleteMany({ where: { clienteId: id } });
   await prisma.clienteTask.deleteMany({ where: { clienteId: id } });
   await prisma.entrega.deleteMany({ where: { clienteId: id } });
+
+  // 3. Ahora sí borra el cliente
   await prisma.client.delete({ where: { id } });
+
   res.json({ ok: true });
 });
 
