@@ -40,7 +40,11 @@ function ClientForm() {
   const [daysLeft, setDaysLeft] = useState(0);
 
   const [ci, setCi] = useState("");
-  const [nombreCompleto, setNombreCompleto] = useState("");
+  const [nombres, setNombres] = useState("");
+const [apellidoPaterno, setApellidoPaterno] = useState("");
+const [apellidoMaterno, setApellidoMaterno] = useState("");
+const [sexo, setSexo] = useState("");
+const [ciudad, setCiudad] = useState("");
   const [direccion, setDireccion] = useState("");
   const [fechaNacimiento, setFechaNacimiento] = useState("");
   const [extension, setExtension] = useState("");
@@ -91,7 +95,11 @@ function ClientForm() {
       const diff = Math.ceil((expires.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
       setDaysLeft(diff);
       setCi(data.ci || "");
-      setNombreCompleto(data.nombreCompleto || "");
+      setNombres(data.nombres || "");
+setApellidoPaterno(data.apellidoPaterno || "");
+setApellidoMaterno(data.apellidoMaterno || "");
+setSexo(data.sexo || "");
+setCiudad(data.ciudad || "");
       setDireccion(data.direccion || "");
       setFechaNacimiento(data.fechaNacimiento || "");
       setExtension(data.extension || "");
@@ -116,11 +124,28 @@ function ClientForm() {
   useEffect(() => { load(); }, []);
 
   const validate = () => {
+    
     const newErrors: Record<string, string> = {};
     if (!ci.trim()) newErrors.ci = "La cédula es obligatoria";
     else if (!/^\d+$/.test(ci.trim())) newErrors.ci = "La cédula solo puede contener números";
-    if (!nombreCompleto.trim()) newErrors.nombreCompleto = "El nombre completo es obligatorio";
-    else if (/\d/.test(nombreCompleto)) newErrors.nombreCompleto = "El nombre no puede contener números";
+    if (!nombres.trim())
+  newErrors.nombres = "Los nombres son obligatorios";
+else if (/\d/.test(nombres))
+  newErrors.nombres = "Los nombres no pueden contener números";
+
+if (!apellidoPaterno.trim())
+  newErrors.apellidoPaterno = "El apellido paterno es obligatorio";
+else if (/\d/.test(apellidoPaterno))
+  newErrors.apellidoPaterno = "El apellido no puede contener números";
+
+if (apellidoMaterno && /\d/.test(apellidoMaterno))
+  newErrors.apellidoMaterno = "El apellido no puede contener números";
+
+if (!sexo)
+  newErrors.sexo = "Seleccione sexo";
+
+if (!ciudad.trim())
+  newErrors.ciudad = "La ciudad es obligatoria";
     if (!direccion.trim()) newErrors.direccion = "La dirección es obligatoria";
     if (!fechaNacimiento) newErrors.fechaNacimiento = "La fecha de nacimiento es obligatoria";
     if (!extension) newErrors.extension = "Selecciona un departamento";
@@ -156,17 +181,31 @@ function ClientForm() {
         setSubiendoFotos(false);
       }
 
-      const res = await fetch(`${API_URL}/clients/form/${token}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ci, nombreCompleto, direccion, fechaNacimiento, extension,
-          profesion, celular, email, pideLibros,
-          cantLibros: pideLibros ? cantLibros : 0,
-          pideArticulos, cantArticulos: pideArticulos ? cantArticulos : 0,
-          pideDirector, pideFundador: false, notasServicio,
-        }),
-      });
+     const res = await fetch(`${API_URL}/clients/form/${token}`, {
+  method: "PUT",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    ci,
+    nombres,
+    apellidoPaterno,
+    apellidoMaterno,
+    sexo,
+    ciudad,
+    direccion,
+    fechaNacimiento,
+    extension,
+    profesion,
+    celular,
+    email,
+    pideLibros,
+    cantLibros: pideLibros ? cantLibros : 0,
+    pideArticulos,
+    cantArticulos: pideArticulos ? cantArticulos : 0,
+    pideDirector,
+    pideFundador: false,
+    notasServicio,
+  }),
+});
       if (!res.ok) { const data = await res.json(); setSaveError(data.error || "Error al guardar"); return; }
 
       if (pideLibros && libroDetalles.length > 0) {
@@ -209,7 +248,8 @@ function ClientForm() {
               {fotoPreview && <div style={{ textAlign: "center" }}><p style={{ color: "#64748b", fontSize: 11, marginBottom: 4 }}>FOTO PERSONAL</p><img src={fotoPreview} alt="foto" style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 8, border: "2px solid #334155" }} /></div>}
               {carnetPreview && <div style={{ textAlign: "center" }}><p style={{ color: "#64748b", fontSize: 11, marginBottom: 4 }}>FOTO CARNET</p><img src={carnetPreview} alt="carnet" style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 8, border: "2px solid #334155" }} /></div>}
             </div>
-            {[{ label: "C.I.", value: ci }, { label: "Nombre", value: nombreCompleto }, { label: "Dirección", value: direccion }, { label: "Fecha de Nacimiento", value: fechaNacimiento }, { label: "Departamento", value: extension }, { label: "Profesión", value: profesion }, { label: "Celular", value: celular }, { label: "Email", value: email }].filter(item => item.value).map((item) => (
+            {[{ label: "C.I.", value: ci }, { label: "Nombre",
+  value: `${nombres} ${apellidoPaterno} ${apellidoMaterno}`.trim() }, { label: "Dirección", value: direccion }, { label: "Fecha de Nacimiento", value: fechaNacimiento }, { label: "Departamento", value: extension }, { label: "Profesión", value: profesion }, { label: "Celular", value: celular }, { label: "Email", value: email }].filter(item => item.value).map((item) => (
               <div key={item.label} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #1e293b" }}>
                 <span style={{ color: "#64748b", fontSize: 13 }}>{item.label}</span>
                 <span style={{ color: "white", fontSize: 13 }}>{item.value}</span>
@@ -262,72 +302,485 @@ function ClientForm() {
 
         {saveError && <div style={{ background: "#7f1d1d", padding: 16, borderRadius: 10, marginBottom: 20, color: "#fca5a5", textAlign: "center", fontWeight: "bold", fontSize: 14 }}>⚠️ {saveError}</div>}
 
-        {/* DATOS PERSONALES */}
-        <div style={sectionStyle}>
-          <h3 style={sectionTitle}>👤 Datos Personales</h3>
-          <label style={labelStyle}>Cédula de Identidad <span style={{ color: "#ef4444" }}>*</span></label>
-          <input placeholder="Ej: 1234567" value={ci} onChange={(e) => setCi(e.target.value.replace(/\D/g, ""))} style={errors.ci ? inputError : inputStyle} />
-          {errors.ci && <p style={errorText}>{errors.ci}</p>}
-          <label style={labelStyle}>Nombre Completo <span style={{ color: "#ef4444" }}>*</span></label>
-          <input placeholder="Ej: JUAN FERNÁNDEZ CALA" value={nombreCompleto} onChange={(e) => setNombreCompleto(e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, "").toUpperCase())} style={errors.nombreCompleto ? inputError : inputStyle} />
-          {errors.nombreCompleto && <p style={errorText}>{errors.nombreCompleto}</p>}
-          <label style={labelStyle}>Dirección <span style={{ color: "#ef4444" }}>*</span></label>
-          <input placeholder="Ej: AVENIDA BOLIVIA NRO 7" value={direccion} onChange={(e) => setDireccion(e.target.value.toUpperCase())} style={errors.direccion ? inputError : inputStyle} />
-          {errors.direccion && <p style={errorText}>{errors.direccion}</p>}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div>
-              <label style={labelStyle}>Fecha de Nacimiento <span style={{ color: "#ef4444" }}>*</span></label>
-              <input type="date" value={fechaNacimiento} onChange={(e) => setFechaNacimiento(e.target.value)} style={errors.fechaNacimiento ? inputError : inputStyle} />
-              {errors.fechaNacimiento && <p style={errorText}>{errors.fechaNacimiento}</p>}
-            </div>
-            <div>
-              <label style={labelStyle}>Departamento <span style={{ color: "#ef4444" }}>*</span></label>
-              <select value={extension} onChange={(e) => setExtension(e.target.value)} style={errors.extension ? { ...inputError, cursor: "pointer" } : { ...inputStyle, cursor: "pointer" }}>
-                <option value="">-- Seleccionar --</option>
-                {DEPARTAMENTOS.map(dep => <option key={dep} value={dep}>{dep}</option>)}
-              </select>
-              {errors.extension && <p style={errorText}>{errors.extension}</p>}
-            </div>
-          </div>
-          <label style={labelStyle}>Profesión <span style={{ color: "#ef4444" }}>*</span></label>
-          <input placeholder="Ej: MAESTRO DE MATEMÁTICAS" value={profesion} onChange={(e) => setProfesion(e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, "").toUpperCase())} style={errors.profesion ? inputError : inputStyle} />
-          {errors.profesion && <p style={errorText}>{errors.profesion}</p>}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div>
-              <label style={labelStyle}>Celular <span style={{ color: "#ef4444" }}>*</span></label>
-              <input placeholder="Ej: 70012345" value={celular} onChange={(e) => setCelular(e.target.value.replace(/\D/g, ""))} style={errors.celular ? inputError : inputStyle} />
-              {errors.celular && <p style={errorText}>{errors.celular}</p>}
-            </div>
-            <div>
-              <label style={labelStyle}>Email <span style={{ color: "#ef4444" }}>*</span></label>
-              <input placeholder="Ej: juan@gmail.com" value={email} onChange={(e) => setEmail(e.target.value.toLowerCase())} style={errors.email ? inputError : inputStyle} />
-              {errors.email && <p style={errorText}>{errors.email}</p>}
-            </div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 12 }}>
-            <div>
-              <label style={labelStyle}>Foto Personal <span style={{ color: "#ef4444" }}>*</span></label>
-              <div style={{ background: errors.fotografia ? "#450a0a" : "#334155", borderRadius: 8, padding: 12, textAlign: "center", border: errors.fotografia ? "1px solid #ef4444" : "none" }}>
-                {fotoPreview && <img src={fotoPreview} alt="preview" style={{ width: "100%", height: 120, objectFit: "cover", borderRadius: 6, marginBottom: 8 }} />}
-                {!fotoPreview && <div style={{ fontSize: 36, marginBottom: 8 }}>🤳</div>}
-                <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) { setFotografia(file); setFotoPreview(URL.createObjectURL(file)); } }} style={{ color: "white", fontSize: 11, width: "100%" }} />
-                <p style={{ color: "#64748b", fontSize: 11, marginTop: 4 }}>Foto de la persona</p>
-              </div>
-              {errors.fotografia && <p style={errorText}>{errors.fotografia}</p>}
-            </div>
-            <div>
-              <label style={labelStyle}>Foto del Carnet <span style={{ color: "#ef4444" }}>*</span></label>
-              <div style={{ background: errors.fotoCarnet ? "#450a0a" : "#334155", borderRadius: 8, padding: 12, textAlign: "center", border: errors.fotoCarnet ? "1px solid #ef4444" : "none" }}>
-                {carnetPreview && <img src={carnetPreview} alt="carnet" style={{ width: "100%", height: 120, objectFit: "cover", borderRadius: 6, marginBottom: 8 }} />}
-                {!carnetPreview && <div style={{ fontSize: 36, marginBottom: 8 }}>🪪</div>}
-                <input type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) { setFotoCarnet(file); setCarnetPreview(URL.createObjectURL(file)); } }} style={{ color: "white", fontSize: 11, width: "100%" }} />
-                <p style={{ color: "#64748b", fontSize: 11, marginTop: 4 }}>Foto del carnet de identidad</p>
-              </div>
-              {errors.fotoCarnet && <p style={errorText}>{errors.fotoCarnet}</p>}
-            </div>
-          </div>
-        </div>
+       {/* DATOS PERSONALES */}
+<div style={sectionStyle}>
+  <h3 style={sectionTitle}>👤 Datos Personales</h3>
 
+  {/* CI */}
+  <label style={labelStyle}>
+    Cédula de Identidad <span style={{ color: "#ef4444" }}>*</span>
+  </label>
+
+  <input
+    placeholder="Ej: 1234567"
+    value={ci}
+    onChange={(e) => setCi(e.target.value.replace(/\D/g, ""))}
+    style={errors.ci ? inputError : inputStyle}
+  />
+
+  {errors.ci && <p style={errorText}>{errors.ci}</p>}
+
+  {/* NOMBRES */}
+  <label style={labelStyle}>
+    Nombres <span style={{ color: "#ef4444" }}>*</span>
+  </label>
+
+  <input
+    placeholder="Ej: JUAN CARLOS"
+    value={nombres}
+    onChange={(e) =>
+      setNombres(
+        e.target.value
+          .replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, "")
+          .toUpperCase()
+      )
+    }
+    style={errors.nombres ? inputError : inputStyle}
+  />
+
+  {errors.nombres && (
+    <p style={errorText}>{errors.nombres}</p>
+  )}
+
+  {/* APELLIDOS */}
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: 12,
+    }}
+  >
+    <div>
+      <label style={labelStyle}>
+        Apellido Paterno <span style={{ color: "#ef4444" }}>*</span>
+      </label>
+
+      <input
+        placeholder="Ej: FERNÁNDEZ"
+        value={apellidoPaterno}
+        onChange={(e) =>
+          setApellidoPaterno(
+            e.target.value
+              .replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, "")
+              .toUpperCase()
+          )
+        }
+        style={
+          errors.apellidoPaterno
+            ? inputError
+            : inputStyle
+        }
+      />
+
+      {errors.apellidoPaterno && (
+        <p style={errorText}>
+          {errors.apellidoPaterno}
+        </p>
+      )}
+    </div>
+
+    <div>
+      <label style={labelStyle}>
+        Apellido Materno
+      </label>
+
+      <input
+        placeholder="Ej: CALA"
+        value={apellidoMaterno}
+        onChange={(e) =>
+          setApellidoMaterno(
+            e.target.value
+              .replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, "")
+              .toUpperCase()
+          )
+        }
+        style={
+          errors.apellidoMaterno
+            ? inputError
+            : inputStyle
+        }
+      />
+
+      {errors.apellidoMaterno && (
+        <p style={errorText}>
+          {errors.apellidoMaterno}
+        </p>
+      )}
+    </div>
+  </div>
+
+  {/* SEXO Y CIUDAD */}
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: 12,
+      marginTop: 12,
+    }}
+  >
+    <div>
+      <label style={labelStyle}>
+        Sexo <span style={{ color: "#ef4444" }}>*</span>
+      </label>
+
+      <select
+        value={sexo}
+        onChange={(e) => setSexo(e.target.value)}
+        style={
+          errors.sexo
+            ? { ...inputError, cursor: "pointer" }
+            : { ...inputStyle, cursor: "pointer" }
+        }
+      >
+        <option value="">-- Seleccionar --</option>
+        <option value="MASCULINO">MASCULINO</option>
+        <option value="FEMENINO">FEMENINO</option>
+      </select>
+
+      {errors.sexo && (
+        <p style={errorText}>{errors.sexo}</p>
+      )}
+    </div>
+
+    <div>
+      <label style={labelStyle}>
+        Ciudad <span style={{ color: "#ef4444" }}>*</span>
+      </label>
+
+      <input
+        placeholder="Ej: LA PAZ"
+        value={ciudad}
+        onChange={(e) =>
+          setCiudad(e.target.value.toUpperCase())
+        }
+        style={errors.ciudad ? inputError : inputStyle}
+      />
+
+      {errors.ciudad && (
+        <p style={errorText}>{errors.ciudad}</p>
+      )}
+    </div>
+  </div>
+
+  {/* DIRECCION */}
+  <label style={labelStyle}>
+    Dirección <span style={{ color: "#ef4444" }}>*</span>
+  </label>
+
+  <input
+    placeholder="Ej: AVENIDA BOLIVIA NRO 7"
+    value={direccion}
+    onChange={(e) =>
+      setDireccion(e.target.value.toUpperCase())
+    }
+    style={errors.direccion ? inputError : inputStyle}
+  />
+
+  {errors.direccion && (
+    <p style={errorText}>{errors.direccion}</p>
+  )}
+
+  {/* FECHA Y DEPARTAMENTO */}
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: 12,
+    }}
+  >
+    <div>
+      <label style={labelStyle}>
+        Fecha de Nacimiento{" "}
+        <span style={{ color: "#ef4444" }}>*</span>
+      </label>
+
+      <input
+        type="date"
+        value={fechaNacimiento}
+        onChange={(e) =>
+          setFechaNacimiento(e.target.value)
+        }
+        style={
+          errors.fechaNacimiento
+            ? inputError
+            : inputStyle
+        }
+      />
+
+      {errors.fechaNacimiento && (
+        <p style={errorText}>
+          {errors.fechaNacimiento}
+        </p>
+      )}
+    </div>
+
+    <div>
+      <label style={labelStyle}>
+        Departamento{" "}
+        <span style={{ color: "#ef4444" }}>*</span>
+      </label>
+
+      <select
+        value={extension}
+        onChange={(e) => setExtension(e.target.value)}
+        style={
+          errors.extension
+            ? { ...inputError, cursor: "pointer" }
+            : { ...inputStyle, cursor: "pointer" }
+        }
+      >
+        <option value="">-- Seleccionar --</option>
+
+        {DEPARTAMENTOS.map((dep) => (
+          <option key={dep} value={dep}>
+            {dep}
+          </option>
+        ))}
+      </select>
+
+      {errors.extension && (
+        <p style={errorText}>
+          {errors.extension}
+        </p>
+      )}
+    </div>
+  </div>
+
+  {/* PROFESION */}
+  <label style={labelStyle}>
+    Profesión <span style={{ color: "#ef4444" }}>*</span>
+  </label>
+
+  <input
+    placeholder="Ej: MAESTRO DE MATEMÁTICAS"
+    value={profesion}
+    onChange={(e) =>
+      setProfesion(
+        e.target.value
+          .replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, "")
+          .toUpperCase()
+      )
+    }
+    style={errors.profesion ? inputError : inputStyle}
+  />
+
+  {errors.profesion && (
+    <p style={errorText}>{errors.profesion}</p>
+  )}
+
+  {/* CELULAR Y EMAIL */}
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: 12,
+    }}
+  >
+    <div>
+      <label style={labelStyle}>
+        Celular <span style={{ color: "#ef4444" }}>*</span>
+      </label>
+
+      <input
+        placeholder="Ej: 70012345"
+        value={celular}
+        onChange={(e) =>
+          setCelular(e.target.value.replace(/\D/g, ""))
+        }
+        style={
+          errors.celular
+            ? inputError
+            : inputStyle
+        }
+      />
+
+      {errors.celular && (
+        <p style={errorText}>{errors.celular}</p>
+      )}
+    </div>
+
+    <div>
+      <label style={labelStyle}>
+        Email <span style={{ color: "#ef4444" }}>*</span>
+      </label>
+
+      <input
+        placeholder="Ej: juan@gmail.com"
+        value={email}
+        onChange={(e) =>
+          setEmail(e.target.value.toLowerCase())
+        }
+        style={errors.email ? inputError : inputStyle}
+      />
+
+      {errors.email && (
+        <p style={errorText}>{errors.email}</p>
+      )}
+    </div>
+  </div>
+
+  {/* FOTOS */}
+  <div
+    style={{
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: 12,
+      marginTop: 12,
+    }}
+  >
+    <div>
+      <label style={labelStyle}>
+        Foto Personal <span style={{ color: "#ef4444" }}>*</span>
+      </label>
+
+      <div
+        style={{
+          background: errors.fotografia
+            ? "#450a0a"
+            : "#334155",
+          borderRadius: 8,
+          padding: 12,
+          textAlign: "center",
+          border: errors.fotografia
+            ? "1px solid #ef4444"
+            : "none",
+        }}
+      >
+        {fotoPreview && (
+          <img
+            src={fotoPreview}
+            alt="preview"
+            style={{
+              width: "100%",
+              height: 120,
+              objectFit: "cover",
+              borderRadius: 6,
+              marginBottom: 8,
+            }}
+          />
+        )}
+
+        {!fotoPreview && (
+          <div style={{ fontSize: 36, marginBottom: 8 }}>
+            🤳
+          </div>
+        )}
+
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+
+            if (file) {
+              setFotografia(file);
+              setFotoPreview(
+                URL.createObjectURL(file)
+              );
+            }
+          }}
+          style={{
+            color: "white",
+            fontSize: 11,
+            width: "100%",
+          }}
+        />
+
+        <p
+          style={{
+            color: "#64748b",
+            fontSize: 11,
+            marginTop: 4,
+          }}
+        >
+          Foto de la persona
+        </p>
+      </div>
+
+      {errors.fotografia && (
+        <p style={errorText}>
+          {errors.fotografia}
+        </p>
+      )}
+    </div>
+
+    <div>
+      <label style={labelStyle}>
+        Foto del Carnet <span style={{ color: "#ef4444" }}>*</span>
+      </label>
+
+      <div
+        style={{
+          background: errors.fotoCarnet
+            ? "#450a0a"
+            : "#334155",
+          borderRadius: 8,
+          padding: 12,
+          textAlign: "center",
+          border: errors.fotoCarnet
+            ? "1px solid #ef4444"
+            : "none",
+        }}
+      >
+        {carnetPreview && (
+          <img
+            src={carnetPreview}
+            alt="carnet"
+            style={{
+              width: "100%",
+              height: 120,
+              objectFit: "cover",
+              borderRadius: 6,
+              marginBottom: 8,
+            }}
+          />
+        )}
+
+        {!carnetPreview && (
+          <div style={{ fontSize: 36, marginBottom: 8 }}>
+            🪪
+          </div>
+        )}
+
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+
+            if (file) {
+              setFotoCarnet(file);
+              setCarnetPreview(
+                URL.createObjectURL(file)
+              );
+            }
+          }}
+          style={{
+            color: "white",
+            fontSize: 11,
+            width: "100%",
+          }}
+        />
+
+        <p
+          style={{
+            color: "#64748b",
+            fontSize: 11,
+            marginTop: 4,
+          }}
+        >
+          Foto del carnet de identidad
+        </p>
+      </div>
+
+      {errors.fotoCarnet && (
+        <p style={errorText}>
+          {errors.fotoCarnet}
+        </p>
+      )}
+    </div>
+  </div>
+</div>
         {/* SERVICIOS */}
         <div style={sectionStyle}>
           <h3 style={sectionTitle}>📦 Servicios Solicitados</h3>
