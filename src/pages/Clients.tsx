@@ -6,6 +6,12 @@ import NavegadorMes from "../components/NavegadorMes";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
+// ─── Tipos ────────────────────────────────────────────────────────────────────
+
+/** Extensiones exactas para SENAPI */
+type Extension = "LP" | "CB" | "SC" | "OR" | "PT" | "CH" | "TJ" | "BN" | "PD" | "QR";
+type Sexo      = "Masculino" | "Femenino";
+
 interface Client {
   id: number;
   token: string;
@@ -13,37 +19,58 @@ interface Client {
   status: string;
   createdAt: string;
 
-  ci: string | null;
+  // Campos personales separados (para SENAPI)
+  ci:              string | null;
+  nombres:         string | null;
+  apellidoPaterno: string | null;
+  apellidoMaterno: string | null;
+  sexo:            Sexo   | null;
+  ciudad:          string | null;
+  extension:       Extension | null;
+
+  // Campo unificado (compatibilidad)
   nombreCompleto: string | null;
-  direccion: string | null;
+
+  direccion:       string | null;
   fechaNacimiento: string | null;
-  extension: string | null;
+  profesion:       string | null;
+  celular:         string | null;
+  email:           string | null;
 
-  sexo: string | null;
-  ciudad: string | null;
+  pideLibros:    boolean;
+  cantLibros:    number;
+  librosHechos:  number;
 
-  profesion: string | null;
-  celular: string | null;
-  email: string | null;
+  pideArticulos:    boolean;
+  cantArticulos:    number;
+  articulosHechos:  number;
 
-  pideLibros: boolean;
-  cantLibros: number;
-  librosHechos: number;
-
-  pideArticulos: boolean;
-  cantArticulos: number;
-  articulosHechos: number;
-
-  pideDirector: boolean;
+  pideDirector:  boolean;
   edicionesHechas: number;
 
   pideFundador: boolean;
 
   notasServicio: string | null;
-
-  fotografia: string | null;
-  fotoCarnet: string | null;
+  fotografia:    string | null;
+  fotoCarnet:    string | null;
 }
+
+/** JSON exacto que necesita el script Tampermonkey de SENAPI */
+interface SenapiPayload {
+  nombres:         string;
+  apellidoPaterno: string;
+  apellidoMaterno: string;
+  sexo:            string;
+  ci:              string;
+  extension:       string;
+  direccion:       string;
+  celular:         string;
+  email:           string;
+  fechaNacimiento: string;
+  ciudad:          string;
+}
+
+// ─── Helpers menores ──────────────────────────────────────────────────────────
 
 function Spinner() {
   return (
@@ -59,9 +86,37 @@ function Spinner() {
   );
 }
 
+function getStatusColor(status: string) {
+  if (status === "procesado")          return { bg: "#14532d", color: "#22c55e" };
+  if (status === "en proceso")         return { bg: "#1e3a5f", color: "#60a5fa" };
+  if (status === "formulario llenado") return { bg: "#312e81", color: "#a78bfa" };
+  return { bg: "#422006", color: "#f59e0b" };
+}
+
+function getServicios(c: Client): string {
+  const s: string[] = [];
+  if (c.pideLibros)    s.push(`${c.cantLibros} Libro(s)`);
+  if (c.pideArticulos) s.push(`${c.cantArticulos} Artículo(s)`);
+  if (c.pideDirector)  s.push("Director");
+  if (c.pideFundador)  s.push("Fundador");
+  return s.join(" · ") || "—";
+}
+
+/** Nombre para mostrar: prefiere campos separados, cae en nombreCompleto */
+function getNombreDisplay(c: Client): string {
+  if (c.nombres || c.apellidoPaterno) {
+    return [c.nombres, c.apellidoPaterno, c.apellidoMaterno].filter(Boolean).join(" ");
+  }
+  return c.nombreCompleto || "Sin nombre";
+}
+
+// ─── Modal de confirmación ────────────────────────────────────────────────────
 function ConfirmModal({ message, onConfirm, onCancel, confirmLabel = "Sí, confirmar", icon = "🗑️" }: {
-  message: string; onConfirm: () => void; onCancel: () => void;
-  confirmLabel?: string; icon?: string;
+  message: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  confirmLabel?: string;
+  icon?: string;
 }) {
   return (
     <div style={{
@@ -78,7 +133,7 @@ function ConfirmModal({ message, onConfirm, onCancel, confirmLabel = "Sí, confi
         <h3 style={{ marginBottom: 10 }}>¿Confirmar?</h3>
         <p style={{ color: "#94a3b8", marginBottom: 28, fontSize: 14 }}>{message}</p>
         <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-          <button onClick={onCancel} style={btnGray}>Cancelar</button>
+          <button onClick={onCancel}  style={btnGray}>{confirmLabel === "Sí, confirmar" ? "Cancelar" : "Cancelar"}</button>
           <button onClick={onConfirm} style={btnGreen}>{confirmLabel}</button>
         </div>
       </div>
@@ -86,6 +141,7 @@ function ConfirmModal({ message, onConfirm, onCancel, confirmLabel = "Sí, confi
   );
 }
 
+// ─── Barra de progreso ────────────────────────────────────────────────────────
 function BarraProgreso({ actual, total, color }: { actual: number; total: number; color: string }) {
   const pct = total === 0 ? 0 : Math.round((actual / total) * 100);
   return (
@@ -95,41 +151,19 @@ function BarraProgreso({ actual, total, color }: { actual: number; total: number
         <span style={{ color, fontSize: 12, fontWeight: "bold" }}>{pct}%</span>
       </div>
       <div style={{ background: "#334155", borderRadius: 99, height: 8, overflow: "hidden" }}>
-        <div style={{
-          width: `${pct}%`, height: "100%", background: color,
-          borderRadius: 99, transition: "width 0.4s ease",
-        }} />
+        <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: 99, transition: "width 0.4s ease" }} />
       </div>
     </div>
   );
 }
 
-function getStatusColor(status: string) {
-  if (status === "procesado") return { bg: "#14532d", color: "#22c55e" };
-  if (status === "en proceso") return { bg: "#1e3a5f", color: "#60a5fa" };
-  if (status === "formulario llenado") return { bg: "#312e81", color: "#a78bfa" };
-  return { bg: "#422006", color: "#f59e0b" };
-}
-
-function getServicios(c: Client) {
-  const s = [];
-  if (c.pideLibros) s.push(`${c.cantLibros} Libro(s)`);
-  if (c.pideArticulos) s.push(`${c.cantArticulos} Artículo(s)`);
-  if (c.pideDirector) s.push("Director");
-  if (c.pideFundador) s.push("Fundador");
-  return s.join(" · ") || "—";
-}
-
+// ─── Export PDF ───────────────────────────────────────────────────────────────
 function exportPDF(clients: Client[], monthLabel: string) {
   const rows = clients.map((c, i) => `
-    <tr style="background: ${i % 2 === 0 ? "#f8fafc" : "#ffffff"}">
-      <td>${c.nombreCompleto || "—"}</td>
-      <td>
-        ${c.fotografia ? `<img src="${c.fotografia}" style="width:50px;height:50px;object-fit:cover;border-radius:50%;border:2px solid #3b82f6;cursor:pointer;" onclick="window.open('${c.fotografia}','_blank')" />` : "<span style='color:#94a3b8'>Sin foto</span>"}
-      </td>
-      <td>
-        ${c.fotoCarnet ? `<img src="${c.fotoCarnet}" style="width:80px;height:50px;object-fit:cover;border-radius:4px;border:2px solid #64748b;cursor:pointer;" onclick="window.open('${c.fotoCarnet}','_blank')" title="Click para ver completo" />` : "—"}
-      </td>
+    <tr style="background:${i % 2 === 0 ? "#f8fafc" : "#ffffff"}">
+      <td>${getNombreDisplay(c)}</td>
+      <td>${c.fotografia  ? `<img src="${c.fotografia}"  style="width:50px;height:50px;object-fit:cover;border-radius:50%;border:2px solid #3b82f6;cursor:pointer;" onclick="window.open('${c.fotografia}','_blank')" />` : "<span style='color:#94a3b8'>Sin foto</span>"}</td>
+      <td>${c.fotoCarnet  ? `<img src="${c.fotoCarnet}"  style="width:80px;height:50px;object-fit:cover;border-radius:4px;border:2px solid #64748b;cursor:pointer;" onclick="window.open('${c.fotoCarnet}','_blank')" />` : "—"}</td>
       <td>${c.ci || "—"}</td>
       <td>${c.direccion || "—"}</td>
       <td>${c.fechaNacimiento || "—"}</td>
@@ -142,15 +176,14 @@ function exportPDF(clients: Client[], monthLabel: string) {
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
     <title>Reporte ${monthLabel}</title>
     <style>
-  body { font-family: Arial, sans-serif; padding: 30px; color: #1e293b; }
-  h1 { color: #1e3a5f; }
-  table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  th { background: #1e3a5f; color: white; padding: 10px 12px; text-align: left; }
-  td { padding: 9px 12px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
-  .copied { background: #dcfce7 !important; }
-  td:not(:has(img)):hover { background: #dbeafe !important; cursor: pointer; }
-  .toast { position: fixed; bottom: 24px; right: 24px; background: #22c55e; color: white; padding: 10px 20px; border-radius: 8px; font-size: 14px; display: none; }
-</style>
+      body { font-family: Arial, sans-serif; padding: 30px; color: #1e293b; }
+      h1 { color: #1e3a5f; }
+      table { width: 100%; border-collapse: collapse; font-size: 12px; }
+      th { background: #1e3a5f; color: white; padding: 10px 12px; text-align: left; }
+      td { padding: 9px 12px; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
+      .copied { background: #dcfce7 !important; }
+      .toast { position: fixed; bottom: 24px; right: 24px; background: #22c55e; color: white; padding: 10px 20px; border-radius: 8px; font-size: 14px; display: none; }
+    </style>
   </head>
   <body>
     <h1>📋 Reporte — ${monthLabel}</h1>
@@ -158,22 +191,16 @@ function exportPDF(clients: Client[], monthLabel: string) {
     <table>
       <thead>
         <tr>
-          <th>Nombre</th>
-<th>Foto</th>
-<th>Carnet</th>
-<th>C.I.</th>
-<th>Dirección</th>
-<th>Fecha Nacimiento</th>
-<th>Departamento</th>
-<th>Celular</th>
-<th>Email</th>
+          <th>Nombre</th><th>Foto</th><th>Carnet</th><th>C.I.</th>
+          <th>Dirección</th><th>Fecha Nacimiento</th><th>Extensión</th>
+          <th>Celular</th><th>Email</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
     </table>
     <div class="toast" id="toast">✅ Copiado</div>
     <p style="margin-top:20px;font-size:11px;color:#94a3b8">
-      💡 Haz click en cualquier celda para copiar su contenido · Haz click en la foto del carnet para verla completa
+      💡 Haz click en cualquier celda para copiar · Haz click en la foto del carnet para verla completa
     </p>
     <p style="margin-top:4px;font-size:11px;color:#94a3b8">
       Asociacion de Escritores Vanguardistas 3.0 · ${new Date().getFullYear()}
@@ -189,10 +216,7 @@ function exportPDF(clients: Client[], monthLabel: string) {
             this.classList.add('copied');
             const toast = document.getElementById('toast');
             toast.style.display = 'block';
-            setTimeout(() => {
-              this.classList.remove('copied');
-              toast.style.display = 'none';
-            }, 1500);
+            setTimeout(() => { this.classList.remove('copied'); toast.style.display = 'none'; }, 1500);
           });
         });
       });
@@ -203,32 +227,37 @@ function exportPDF(clients: Client[], monthLabel: string) {
   if (win) { win.document.write(html); win.document.close(); }
 }
 
+// ─── Componente principal ─────────────────────────────────────────────────────
 function Clients() {
-  const { token } = useAuth();
+  const { token }   = useAuth();
   const { isMobile } = useWindowSize();
   const { mes, anio, mesLabel, anterior, siguiente, esActual, filtrarPorMes } = useMesActual();
 
-  const [clients, setClients] = useState<Client[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [clients, setClients]   = useState<Client[]>([]);
+  const [loading, setLoading]   = useState(true);
   const [creating, setCreating] = useState(false);
-  const [newName, setNewName] = useState("");
+  const [newName, setNewName]   = useState("");
   const [selected, setSelected] = useState<Client | null>(null);
-  const [view, setView] = useState<"lista" | "reporte">("lista");
-  const [copiedId, setCopiedId] = useState<number | null>(null);
+  const [view, setView]         = useState<"lista" | "reporte">("lista");
+
+  const [copiedId, setCopiedId]           = useState<number | null>(null);
   const [regeneratingId, setRegeneratingId] = useState<number | null>(null);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [updatingId, setUpdatingId] = useState<number | null>(null);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deletingId, setDeletingId]       = useState<number | null>(null);
+  const [updatingId, setUpdatingId]       = useState<number | null>(null);
+
+  // ── Modal de confirmación ──
+  const [confirmOpen, setConfirmOpen]       = useState(false);
   const [confirmMessage, setConfirmMessage] = useState("");
-  const [confirmAction, setConfirmAction] = useState<() => void>(() => {});
-  const [confirmLabel, setConfirmLabel] = useState("Sí, confirmar");
-  const [confirmIcon, setConfirmIcon] = useState("🗑️");
+  const [confirmAction, setConfirmAction]   = useState<() => void>(() => () => {});
+  const [confirmLabel, setConfirmLabel]     = useState("Sí, confirmar");
+  const [confirmIcon, setConfirmIcon]       = useState("🗑️");
 
   const headers = {
     "Content-Type": "application/json",
     Authorization: `Bearer ${token}`,
   };
 
+  // ── Carga ──────────────────────────────────────────────────────────────────
   const load = async () => {
     setLoading(true);
     const res = await fetch(`${API_URL}/clients`, { headers });
@@ -240,14 +269,16 @@ function Clients() {
 
   const clientesMes = filtrarPorMes(clients);
 
+  // ── Confirm helper — doble wrapper para evitar bug de useState con funciones ──
   const showConfirm = (message: string, action: () => void, label = "Sí, confirmar", icon = "🗑️") => {
     setConfirmMessage(message);
-    setConfirmAction(() => action);
+    setConfirmAction(() => () => action()); // ← doble arrow: evita que React ejecute `action` como updater
     setConfirmLabel(label);
     setConfirmIcon(icon);
     setConfirmOpen(true);
   };
 
+  // ── CRUD ──────────────────────────────────────────────────────────────────
   const create = async () => {
     setCreating(true);
     try {
@@ -268,31 +299,30 @@ function Clients() {
     setCopiedId(c.id);
     setTimeout(() => setCopiedId(null), 2000);
   };
-const copiarSenapi = async (cliente: Client) => {
 
-  const datos = {
-    tipoPersona: "natural",
-    tipoDocumento: "Carnet de identidad",
-    expedicion: cliente.extension,
-    nacionalidad: "Bolivia",
-    nombreCompleto: cliente.nombreCompleto,
-    ci: cliente.ci,
-    direccion: cliente.direccion,
-    celular: cliente.celular,
-    email: cliente.email,
-    fechaNacimiento: cliente.fechaNacimiento,
-    sexo: cliente.sexo,
-    profesion: cliente.profesion,
-    ciudad: cliente.ciudad,
+  /**
+   * Copia el JSON exacto que necesita el script Tampermonkey de SENAPI.
+   * Usa los campos separados; si faltan, deja string vacío para que el
+   * script sepa que no hay dato (no falla con null).
+   */
+  const copiarSenapi = async (c: Client) => {
+    const payload: SenapiPayload = {
+      nombres:         c.nombres         ?? "",
+      apellidoPaterno: c.apellidoPaterno  ?? "",
+      apellidoMaterno: c.apellidoMaterno  ?? "",
+      sexo:            c.sexo             ?? "",
+      ci:              c.ci               ?? "",
+      extension:       c.extension        ?? "",
+      direccion:       c.direccion        ?? "",
+      celular:         c.celular          ?? "",
+      email:           c.email            ?? "",
+      fechaNacimiento: c.fechaNacimiento  ?? "",
+      ciudad:          c.ciudad           ?? "",
+    };
+    await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+    alert("✅ Datos SENAPI copiados al portapapeles");
   };
 
-  await navigator.clipboard.writeText(
-    JSON.stringify(datos)
-  );
-
-  alert("✅ Datos copiados para SENAPI");
-
-};
   const regenerar = async (id: number) => {
     setRegeneratingId(id);
     try {
@@ -317,7 +347,7 @@ const copiarSenapi = async (cliente: Client) => {
   };
 
   const updateProgreso = async (id: number, campo: string, valor: number) => {
-    const res = await fetch(`${API_URL}/clients/${id}/progreso`, {
+    const res  = await fetch(`${API_URL}/clients/${id}/progreso`, {
       method: "PUT", headers, body: JSON.stringify({ [campo]: valor }),
     });
     const data = await res.json();
@@ -332,9 +362,9 @@ const copiarSenapi = async (cliente: Client) => {
       articulosHechos: "artículo", librosHechos: "libro", edicionesHechas: "edición",
     };
     showConfirm(
-      `¿Confirmas que el ${nuevo}° ${nombres[campo]} de ${selected.nombreCompleto} está completado?`,
+      `¿Confirmas que el ${nuevo}° ${nombres[campo]} de ${getNombreDisplay(selected)} está completado?`,
       async () => { setConfirmOpen(false); await updateProgreso(selected.id, campo, nuevo); },
-      "✅ Sí, completado", "✅"
+      "✅ Sí, completado", "✅",
     );
   };
 
@@ -345,7 +375,7 @@ const copiarSenapi = async (cliente: Client) => {
 
   const remove = (c: Client) => {
     showConfirm(
-      `¿Eliminar al cliente "${c.nombreCompleto || "Sin nombre"}" permanentemente?`,
+      `¿Eliminar al cliente "${getNombreDisplay(c)}" permanentemente?`,
       async () => {
         setConfirmOpen(false);
         setDeletingId(c.id);
@@ -353,23 +383,28 @@ const copiarSenapi = async (cliente: Client) => {
           await fetch(`${API_URL}/clients/${c.id}`, { method: "DELETE", headers });
           if (selected?.id === c.id) setSelected(null);
           await load();
-        } finally { setDeletingId(null); }
+        } finally {
+          setDeletingId(null);
+        }
       },
-      "Sí, eliminar", "🗑️"
+      "Sí, eliminar", "🗑️",
     );
   };
 
-  const isExpired = (expiresAt: string) => new Date() > new Date(expiresAt);
+  const isExpired   = (expiresAt: string) => new Date() > new Date(expiresAt);
   const getDaysLeft = (expiresAt: string) =>
-    Math.ceil((new Date(expiresAt).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+    Math.ceil((new Date(expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div>
       {confirmOpen && (
         <ConfirmModal
-          message={confirmMessage} onConfirm={confirmAction}
+          message={confirmMessage}
+          onConfirm={confirmAction}
           onCancel={() => setConfirmOpen(false)}
-          confirmLabel={confirmLabel} icon={confirmIcon}
+          confirmLabel={confirmLabel}
+          icon={confirmIcon}
         />
       )}
 
@@ -378,14 +413,17 @@ const copiarSenapi = async (cliente: Client) => {
         Gestiona los clientes y su progreso de producción.
       </p>
 
+      {/* ── DETALLE DE CLIENTE ────────────────────────────────────────────── */}
       {selected ? (
         <div>
           <button onClick={() => setSelected(null)} style={btnGray}>← Volver</button>
+
           <div style={{ background: "#1e293b", padding: isMobile ? 20 : 28, borderRadius: 14, marginTop: 20 }}>
 
+            {/* Cabecera */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
               <div>
-                <h2 style={{ marginBottom: 6, fontSize: isMobile ? 18 : 22 }}>{selected.nombreCompleto || "Sin nombre"}</h2>
+                <h2 style={{ marginBottom: 6, fontSize: isMobile ? 18 : 22 }}>{getNombreDisplay(selected)}</h2>
                 <span style={{
                   fontSize: 12, padding: "3px 12px", borderRadius: 99,
                   background: getStatusColor(selected.status).bg,
@@ -393,14 +431,14 @@ const copiarSenapi = async (cliente: Client) => {
                 }}>{selected.status}</span>
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <button onClick={() => updateStatus(selected.id, "pendiente")} disabled={updatingId === selected.id} style={{ ...btnGray, fontSize: 12 }}>⏳</button>
+                <button onClick={() => updateStatus(selected.id, "pendiente")}          disabled={updatingId === selected.id} style={{ ...btnGray,   fontSize: 12 }}>⏳</button>
                 <button onClick={() => updateStatus(selected.id, "formulario llenado")} disabled={updatingId === selected.id} style={{ ...btnPurple, fontSize: 12 }}>📝</button>
-                <button onClick={() => updateStatus(selected.id, "en proceso")} disabled={updatingId === selected.id} style={{ ...btnBlue, fontSize: 12 }}>🔄</button>
-                <button onClick={() => updateStatus(selected.id, "procesado")} disabled={updatingId === selected.id} style={{ ...btnGreen, fontSize: 12 }}>✅</button>
+                <button onClick={() => updateStatus(selected.id, "en proceso")}         disabled={updatingId === selected.id} style={{ ...btnBlue,   fontSize: 12 }}>🔄</button>
+                <button onClick={() => updateStatus(selected.id, "procesado")}          disabled={updatingId === selected.id} style={{ ...btnGreen,  fontSize: 12 }}>✅</button>
               </div>
             </div>
 
-            {/* PROGRESO */}
+            {/* Progreso */}
             {(selected.pideArticulos || selected.pideLibros || selected.pideDirector) && (
               <div style={{ background: "#0f172a", padding: 20, borderRadius: 12, marginBottom: 24 }}>
                 <h3 style={{ marginBottom: 16, fontSize: 13, color: "#94a3b8", textTransform: "uppercase", letterSpacing: 1 }}>
@@ -411,11 +449,11 @@ const copiarSenapi = async (cliente: Client) => {
                     <div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                         <span style={{ color: "white", fontWeight: "bold" }}>📝 Artículos</span>
-                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                          <button onClick={() => bajarProgreso("articulosHechos", selected.articulosHechos)} disabled={selected.articulosHechos <= 0} style={{ background: "#334155", border: "none", borderRadius: 6, color: "white", cursor: selected.articulosHechos <= 0 ? "not-allowed" : "pointer", width: 28, height: 28, fontSize: 16, opacity: selected.articulosHechos <= 0 ? 0.4 : 1 }}>−</button>
-                          <span style={{ color: "white", fontWeight: "bold", minWidth: 40, textAlign: "center" }}>{selected.articulosHechos}/{selected.cantArticulos}</span>
-                          <button onClick={() => subirProgreso("articulosHechos", selected.articulosHechos, selected.cantArticulos)} disabled={selected.articulosHechos >= selected.cantArticulos} style={{ background: "#22c55e", border: "none", borderRadius: 6, color: "white", cursor: selected.articulosHechos >= selected.cantArticulos ? "not-allowed" : "pointer", width: 28, height: 28, fontSize: 16, opacity: selected.articulosHechos >= selected.cantArticulos ? 0.4 : 1 }}>+</button>
-                        </div>
+                        <ProgresoControles
+                          actual={selected.articulosHechos} total={selected.cantArticulos}
+                          onMas={() => subirProgreso("articulosHechos", selected.articulosHechos, selected.cantArticulos)}
+                          onMenos={() => bajarProgreso("articulosHechos", selected.articulosHechos)}
+                        />
                       </div>
                       <BarraProgreso actual={selected.articulosHechos} total={selected.cantArticulos} color="#60a5fa" />
                     </div>
@@ -424,11 +462,11 @@ const copiarSenapi = async (cliente: Client) => {
                     <div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                         <span style={{ color: "white", fontWeight: "bold" }}>📚 Libros</span>
-                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                          <button onClick={() => bajarProgreso("librosHechos", selected.librosHechos)} disabled={selected.librosHechos <= 0} style={{ background: "#334155", border: "none", borderRadius: 6, color: "white", cursor: selected.librosHechos <= 0 ? "not-allowed" : "pointer", width: 28, height: 28, fontSize: 16, opacity: selected.librosHechos <= 0 ? 0.4 : 1 }}>−</button>
-                          <span style={{ color: "white", fontWeight: "bold", minWidth: 40, textAlign: "center" }}>{selected.librosHechos}/{selected.cantLibros}</span>
-                          <button onClick={() => subirProgreso("librosHechos", selected.librosHechos, selected.cantLibros)} disabled={selected.librosHechos >= selected.cantLibros} style={{ background: "#22c55e", border: "none", borderRadius: 6, color: "white", cursor: selected.librosHechos >= selected.cantLibros ? "not-allowed" : "pointer", width: 28, height: 28, fontSize: 16, opacity: selected.librosHechos >= selected.cantLibros ? 0.4 : 1 }}>+</button>
-                        </div>
+                        <ProgresoControles
+                          actual={selected.librosHechos} total={selected.cantLibros}
+                          onMas={() => subirProgreso("librosHechos", selected.librosHechos, selected.cantLibros)}
+                          onMenos={() => bajarProgreso("librosHechos", selected.librosHechos)}
+                        />
                       </div>
                       <BarraProgreso actual={selected.librosHechos} total={selected.cantLibros} color="#22c55e" />
                     </div>
@@ -437,20 +475,23 @@ const copiarSenapi = async (cliente: Client) => {
                     <div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                         <span style={{ color: "white", fontWeight: "bold" }}>📘 Ediciones como Director</span>
-                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                          <button onClick={() => bajarProgreso("edicionesHechas", selected.edicionesHechas)} disabled={selected.edicionesHechas <= 0} style={{ background: "#334155", border: "none", borderRadius: 6, color: "white", cursor: selected.edicionesHechas <= 0 ? "not-allowed" : "pointer", width: 28, height: 28, fontSize: 16, opacity: selected.edicionesHechas <= 0 ? 0.4 : 1 }}>−</button>
-                          <span style={{ color: "white", fontWeight: "bold", minWidth: 60, textAlign: "center" }}>Edición {selected.edicionesHechas}</span>
-                          <button onClick={() => subirProgreso("edicionesHechas", selected.edicionesHechas, 999)} style={{ background: "#22c55e", border: "none", borderRadius: 6, color: "white", cursor: "pointer", width: 28, height: 28, fontSize: 16 }}>+</button>
-                        </div>
+                        <ProgresoControles
+                          actual={selected.edicionesHechas} total={999}
+                          onMas={() => subirProgreso("edicionesHechas", selected.edicionesHechas, 999)}
+                          onMenos={() => bajarProgreso("edicionesHechas", selected.edicionesHechas)}
+                          label={`Edición ${selected.edicionesHechas}`}
+                        />
                       </div>
-                      <p style={{ color: "#64748b", fontSize: 12 }}>Edición actual: {selected.edicionesHechas === 0 ? "Sin iniciar" : `Edición ${selected.edicionesHechas}`}</p>
+                      <p style={{ color: "#64748b", fontSize: 12 }}>
+                        Edición actual: {selected.edicionesHechas === 0 ? "Sin iniciar" : `Edición ${selected.edicionesHechas}`}
+                      </p>
                     </div>
                   )}
                 </div>
               </div>
             )}
 
-            {/* LINK */}
+            {/* Link formulario */}
             <div style={{ background: "#0f172a", padding: 16, borderRadius: 10, marginBottom: 24 }}>
               <p style={{ color: "#64748b", fontSize: 12, marginBottom: 8 }}>LINK DEL FORMULARIO</p>
               <code style={{ color: "#60a5fa", fontSize: isMobile ? 11 : 13, wordBreak: "break-all" }}>
@@ -468,43 +509,48 @@ const copiarSenapi = async (cliente: Client) => {
                 {isExpired(selected.expiresAt) ? "⚠️ Link expirado" : `⏳ Expira en ${getDaysLeft(selected.expiresAt)} día(s)`}
               </p>
             </div>
-{/* FOTOS */}
-{(selected.fotografia || selected.fotoCarnet) && (
-  <div style={{ display: "flex", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
-    {selected.fotografia && (
-      <div style={{ background: "#0f172a", padding: 14, borderRadius: 8, textAlign: "center" }}>
-        <p style={{ color: "#64748b", fontSize: 11, marginBottom: 8, textTransform: "uppercase" }}>Foto Personal</p>
-        <img src={selected.fotografia} alt="foto"
-          style={{ width: 100, height: 100, objectFit: "cover", borderRadius: "50%", border: "3px solid #3b82f6", cursor: "pointer" }}
-          onClick={() => window.open(selected.fotografia!, "_blank")}
-        />
-      </div>
-    )}
-    {selected.fotoCarnet && (
-      <div style={{ background: "#0f172a", padding: 14, borderRadius: 8, textAlign: "center" }}>
-        <p style={{ color: "#64748b", fontSize: 11, marginBottom: 8, textTransform: "uppercase" }}>Foto Carnet</p>
-        <img src={selected.fotoCarnet} alt="carnet"
-          style={{ width: 140, height: 100, objectFit: "cover", borderRadius: 8, border: "3px solid #64748b", cursor: "pointer" }}
-          onClick={() => window.open(selected.fotoCarnet!, "_blank")}
-        />
-        <p style={{ color: "#64748b", fontSize: 10, marginTop: 4 }}>Click para ver completo</p>
-      </div>
-    )}
-  </div>
-)}
-            {/* DATOS */}
+
+            {/* Fotos */}
+            {(selected.fotografia || selected.fotoCarnet) && (
+              <div style={{ display: "flex", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
+                {selected.fotografia && (
+                  <div style={{ background: "#0f172a", padding: 14, borderRadius: 8, textAlign: "center" }}>
+                    <p style={{ color: "#64748b", fontSize: 11, marginBottom: 8, textTransform: "uppercase" }}>Foto Personal</p>
+                    <img src={selected.fotografia} alt="foto"
+                      style={{ width: 100, height: 100, objectFit: "cover", borderRadius: "50%", border: "3px solid #3b82f6", cursor: "pointer" }}
+                      onClick={() => window.open(selected.fotografia!, "_blank")}
+                    />
+                  </div>
+                )}
+                {selected.fotoCarnet && (
+                  <div style={{ background: "#0f172a", padding: 14, borderRadius: 8, textAlign: "center" }}>
+                    <p style={{ color: "#64748b", fontSize: 11, marginBottom: 8, textTransform: "uppercase" }}>Foto Carnet</p>
+                    <img src={selected.fotoCarnet} alt="carnet"
+                      style={{ width: 140, height: 100, objectFit: "cover", borderRadius: 8, border: "3px solid #64748b", cursor: "pointer" }}
+                      onClick={() => window.open(selected.fotoCarnet!, "_blank")}
+                    />
+                    <p style={{ color: "#64748b", fontSize: 10, marginTop: 4 }}>Click para ver completo</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Datos personales */}
             <h3 style={{ marginBottom: 16, color: "#94a3b8", fontSize: 13, textTransform: "uppercase", letterSpacing: 1 }}>Datos Personales</h3>
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: 12, marginBottom: 24 }}>
               {[
-                { label: "C.I.", value: selected.ci },
-                { label: "Nombre", value: selected.nombreCompleto },
-                { label: "Dirección", value: selected.direccion },
+                { label: "C.I.",             value: selected.ci },
+                { label: "Nombres",          value: selected.nombres },
+                { label: "Apellido Paterno", value: selected.apellidoPaterno },
+                { label: "Apellido Materno", value: selected.apellidoMaterno },
+                { label: "Sexo",             value: selected.sexo },
+                { label: "Ciudad",           value: selected.ciudad },
+                { label: "Extensión",        value: selected.extension },
+                { label: "Dirección",        value: selected.direccion },
                 { label: "Fecha Nacimiento", value: selected.fechaNacimiento },
-                { label: "Extensión", value: selected.extension },
-                { label: "Profesión", value: selected.profesion },
-              
-                { label: "Celular", value: selected.celular },
-                { label: "Email", value: selected.email },
+                { label: "Profesión",        value: selected.profesion },
+                { label: "Celular",          value: selected.celular },
+                { label: "Email",            value: selected.email },
               ].map(item => (
                 <div key={item.label} style={{ background: "#0f172a", padding: 14, borderRadius: 8 }}>
                   <p style={{ color: "#64748b", fontSize: 11, marginBottom: 4, textTransform: "uppercase" }}>{item.label}</p>
@@ -513,13 +559,13 @@ const copiarSenapi = async (cliente: Client) => {
               ))}
             </div>
 
-            {/* SERVICIOS */}
+            {/* Servicios */}
             <h3 style={{ marginBottom: 12, color: "#94a3b8", fontSize: 13, textTransform: "uppercase", letterSpacing: 1 }}>Servicios</h3>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
-              {selected.pideLibros && <span style={tagStyle}>📚 Libros ({selected.cantLibros})</span>}
+              {selected.pideLibros    && <span style={tagStyle}>📚 Libros ({selected.cantLibros})</span>}
               {selected.pideArticulos && <span style={tagStyle}>📝 Artículos ({selected.cantArticulos})</span>}
-              {selected.pideDirector && <span style={tagStyle}>📘 Director</span>}
-              {selected.pideFundador && <span style={tagStyle}>🏆 Fundador</span>}
+              {selected.pideDirector  && <span style={tagStyle}>📘 Director</span>}
+              {selected.pideFundador  && <span style={tagStyle}>🏆 Fundador</span>}
               {!selected.pideLibros && !selected.pideArticulos && !selected.pideDirector && !selected.pideFundador && (
                 <p style={{ color: "#64748b", fontSize: 14 }}>Sin servicios aún.</p>
               )}
@@ -532,21 +578,39 @@ const copiarSenapi = async (cliente: Client) => {
               </div>
             )}
 
-            <button onClick={() => remove(selected)} disabled={deletingId === selected.id} style={{ ...btnRed, display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
-              {deletingId === selected.id ? <Spinner /> : "🗑 Eliminar cliente"}
-              
-            </button>
+            {/* Acciones */}
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8 }}>
+              <button
+                onClick={() => copiarSenapi(selected)}
+                style={{ ...btnGreen, display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}
+              >
+                📋 Copiar SENAPI
+              </button>
+              <button
+                onClick={() => remove(selected)}
+                disabled={deletingId === selected.id}
+                style={{ ...btnRed, display: "flex", alignItems: "center", gap: 8 }}
+              >
+                {deletingId === selected.id ? <Spinner /> : "🗑 Eliminar cliente"}
+              </button>
+            </div>
           </div>
         </div>
+
       ) : (
+        /* ── LISTA / REPORTE ───────────────────────────────────────────────── */
         <>
-          {/* CREAR */}
-          <div style={{ background: "#1e293b", padding: 20, borderRadius: 12, marginBottom: 24, display: "flex", flexDirection: isMobile ? "column" : "row", gap: 10, alignItems: isMobile ? "stretch" : "center" }}>
+          {/* Crear cliente */}
+          <div style={{
+            background: "#1e293b", padding: 20, borderRadius: 12, marginBottom: 24,
+            display: "flex", flexDirection: isMobile ? "column" : "row", gap: 10,
+            alignItems: isMobile ? "stretch" : "center",
+          }}>
             <input
               placeholder="Nombre del cliente (opcional)"
               value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && create()}
+              onChange={e => setNewName(e.target.value)}
+              onKeyDown={e => e.key === "Enter" && create()}
               style={{ flex: 1, padding: 10, borderRadius: 8, border: "none", background: "#334155", color: "white", fontSize: 14 }}
             />
             <button onClick={create} disabled={creating} style={{ ...btnBlue, display: "flex", alignItems: "center", gap: 8, justifyContent: "center" }}>
@@ -554,16 +618,15 @@ const copiarSenapi = async (cliente: Client) => {
             </button>
           </div>
 
-          {/* NAVEGADOR MES */}
           <NavegadorMes
             mesLabel={mesLabel} anio={anio}
             onAnterior={anterior} onSiguiente={siguiente}
             esActual={esActual()}
           />
 
-          {/* TABS */}
+          {/* Tabs */}
           <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
-            <button onClick={() => setView("lista")} style={view === "lista" ? btnBlue : btnGray}>📋 Lista</button>
+            <button onClick={() => setView("lista")}   style={view === "lista"   ? btnBlue : btnGray}>📋 Lista</button>
             <button onClick={() => setView("reporte")} style={view === "reporte" ? btnBlue : btnGray}>📊 Reporte</button>
           </div>
 
@@ -574,41 +637,46 @@ const copiarSenapi = async (cliente: Client) => {
               <p style={{ color: "#64748b", fontSize: 16 }}>No hay clientes en {mesLabel} {anio}</p>
             </div>
           ) : view === "lista" ? (
+            /* ── Vista Lista ── */
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {clientesMes.map((c) => {
-                const expired = isExpired(c.expiresAt);
+              {clientesMes.map(c => {
+                const expired      = isExpired(c.expiresAt);
                 const statusColors = getStatusColor(c.status);
                 return (
                   <div key={c.id} style={{
-                    background: "#1e293b", padding: isMobile ? "14px 16px" : "16px 20px",
-                    borderRadius: 10, display: "flex",
-                    flexDirection: isMobile ? "column" : "row",
+                    background: "#1e293b",
+                    padding: isMobile ? "14px 16px" : "16px 20px",
+                    borderRadius: 10,
+                    display: "flex", flexDirection: isMobile ? "column" : "row",
                     alignItems: isMobile ? "flex-start" : "center",
                     justifyContent: "space-between",
                     borderLeft: `4px solid ${expired ? "#ef4444" : "#3b82f6"}`, gap: 12,
                   }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ color: "white", fontWeight: "bold", marginBottom: 4, fontSize: isMobile ? 14 : 15 }}>
-                        {c.nombreCompleto || "Sin nombre"}
+                        {getNombreDisplay(c)}
                       </p>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 6 }}>
-                        <span style={{ fontSize: 11, padding: "2px 10px", borderRadius: 99, background: statusColors.bg, color: statusColors.color }}>{c.status}</span>
+                        <span style={{ fontSize: 11, padding: "2px 10px", borderRadius: 99, background: statusColors.bg, color: statusColors.color }}>
+                          {c.status}
+                        </span>
                         <span style={{ fontSize: 11, color: expired ? "#ef4444" : "#64748b" }}>
                           {expired ? "⚠️ Expirado" : `⏳ ${getDaysLeft(c.expiresAt)} día(s)`}
                         </span>
                       </div>
-                      {(c.pideArticulos || c.pideLibros) && (
+                      {(c.pideArticulos || c.pideLibros || c.pideDirector) && (
                         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                           {c.pideArticulos && <span style={{ fontSize: 12, color: "#60a5fa" }}>📝 {c.articulosHechos}/{c.cantArticulos}</span>}
-                          {c.pideLibros && <span style={{ fontSize: 12, color: "#22c55e" }}>📚 {c.librosHechos}/{c.cantLibros}</span>}
-                          {c.pideDirector && <span style={{ fontSize: 12, color: "#a78bfa" }}>📘 Ed.{c.edicionesHechas}</span>}
+                          {c.pideLibros    && <span style={{ fontSize: 12, color: "#22c55e" }}>📚 {c.librosHechos}/{c.cantLibros}</span>}
+                          {c.pideDirector  && <span style={{ fontSize: 12, color: "#a78bfa" }}>📘 Ed.{c.edicionesHechas}</span>}
                         </div>
                       )}
                     </div>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      <button onClick={() => copyLink(c)} style={{ ...btnGray, fontSize: 12 }}>{copiedId === c.id ? "✅" : "📋"}</button>
+                      <button onClick={() => copyLink(c)}    style={{ ...btnGray, fontSize: 12 }}>{copiedId === c.id ? "✅" : "📋"}</button>
                       <button onClick={() => setSelected(c)} style={{ ...btnBlue, fontSize: 12 }}>Ver</button>
-                      <button onClick={() => remove(c)} disabled={deletingId === c.id} style={{ ...btnRed, fontSize: 12, display: "flex", alignItems: "center", gap: 6, minWidth: 44, justifyContent: "center" }}>
+                      <button onClick={() => remove(c)} disabled={deletingId === c.id}
+                        style={{ ...btnRed, fontSize: 12, display: "flex", alignItems: "center", gap: 6, minWidth: 44, justifyContent: "center" }}>
                         {deletingId === c.id ? <Spinner /> : "🗑"}
                       </button>
                     </div>
@@ -617,6 +685,7 @@ const copiarSenapi = async (cliente: Client) => {
               })}
             </div>
           ) : (
+            /* ── Vista Reporte ── */
             <div>
               <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
                 <button onClick={() => exportPDF(clientesMes, `${mesLabel} ${anio}`)} style={{ ...btnGray, fontSize: 13 }}>
@@ -628,32 +697,34 @@ const copiarSenapi = async (cliente: Client) => {
                   <thead>
                     <tr style={{ background: "#1e293b" }}>
                       {["Nombre", "C.I.", "Ext.", "Email", "Celular", "Profesión", "Servicios", "Progreso", "Estado", "SENAPI"].map(h => (
-                        <th key={h} style={{ padding: "10px 14px", textAlign: "left", color: "#64748b", fontWeight: "bold", fontSize: 11, textTransform: "uppercase", whiteSpace: "nowrap" }}>{h}</th>
+                        <th key={h} style={{ padding: "10px 14px", textAlign: "left", color: "#64748b", fontWeight: "bold", fontSize: 11, textTransform: "uppercase", whiteSpace: "nowrap" }}>
+                          {h}
+                        </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-
                     {clientesMes.map((c, i) => {
                       const statusColors = getStatusColor(c.status);
-                  
                       return (
-                        <tr key={c.id} onClick={() => setSelected(c)} style={{ background: i % 2 === 0 ? "#0f172a" : "#1e293b", cursor: "pointer" }}
-                          onMouseEnter={e => e.currentTarget.style.background = "#334155"}
-                          onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? "#0f172a" : "#1e293b"}
+                        <tr key={c.id}
+                          onClick={() => setSelected(c)}
+                          style={{ background: i % 2 === 0 ? "#0f172a" : "#1e293b", cursor: "pointer" }}
+                          onMouseEnter={e => (e.currentTarget.style.background = "#334155")}
+                          onMouseLeave={e => (e.currentTarget.style.background = i % 2 === 0 ? "#0f172a" : "#1e293b")}
                         >
-                          <td style={tdStyle}><strong>{c.nombreCompleto || "—"}</strong></td>
-                          <td style={tdStyle}>{c.ci || "—"}</td>
+                          <td style={tdStyle}><strong>{getNombreDisplay(c)}</strong></td>
+                          <td style={tdStyle}>{c.ci        || "—"}</td>
                           <td style={tdStyle}>{c.extension || "—"}</td>
-                          <td style={tdStyle}>{c.email || "—"}</td>
-                          <td style={tdStyle}>{c.celular || "—"}</td>
+                          <td style={tdStyle}>{c.email     || "—"}</td>
+                          <td style={tdStyle}>{c.celular   || "—"}</td>
                           <td style={tdStyle}>{c.profesion || "—"}</td>
                           <td style={tdStyle}><span style={{ color: "#60a5fa" }}>{getServicios(c)}</span></td>
                           <td style={tdStyle}>
                             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                               {c.pideArticulos && <span style={{ fontSize: 11, color: "#60a5fa" }}>📝 {c.articulosHechos}/{c.cantArticulos}</span>}
-                              {c.pideLibros && <span style={{ fontSize: 11, color: "#22c55e" }}>📚 {c.librosHechos}/{c.cantLibros}</span>}
-                              {c.pideDirector && <span style={{ fontSize: 11, color: "#a78bfa" }}>📘 Ed.{c.edicionesHechas}</span>}
+                              {c.pideLibros    && <span style={{ fontSize: 11, color: "#22c55e" }}>📚 {c.librosHechos}/{c.cantLibros}</span>}
+                              {c.pideDirector  && <span style={{ fontSize: 11, color: "#a78bfa" }}>📘 Ed.{c.edicionesHechas}</span>}
                             </div>
                           </td>
                           <td style={tdStyle}>
@@ -662,27 +733,13 @@ const copiarSenapi = async (cliente: Client) => {
                             </span>
                           </td>
                           <td style={tdStyle}>
-
-  <button
-    onClick={(e) => {
-      e.stopPropagation();
-      copiarSenapi(c);
-    }}
-    style={{
-      padding: "6px 10px",
-      background: "#16a34a",
-      color: "white",
-      border: "none",
-      borderRadius: "8px",
-      cursor: "pointer",
-      fontSize: 12,
-      fontWeight: "bold",
-    }}
-  >
-    Copiar
-  </button>
-
-</td>
+                            <button
+                              onClick={e => { e.stopPropagation(); copiarSenapi(c); }}
+                              style={{ padding: "6px 10px", background: "#16a34a", color: "white", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 12, fontWeight: "bold" }}
+                            >
+                              Copiar
+                            </button>
+                          </td>
                         </tr>
                       );
                     })}
@@ -697,12 +754,38 @@ const copiarSenapi = async (cliente: Client) => {
   );
 }
 
-const tdStyle: React.CSSProperties = { padding: "12px 14px", color: "white", borderBottom: "1px solid #1e293b", whiteSpace: "nowrap" };
-const tagStyle: React.CSSProperties = { background: "#1e3a5f", color: "#60a5fa", padding: "4px 14px", borderRadius: 99, fontSize: 13, fontWeight: "bold" };
-const btnBlue: React.CSSProperties = { background: "#3b82f6", border: "none", padding: "8px 16px", borderRadius: 8, color: "white", cursor: "pointer", fontWeight: "bold" };
-const btnGreen: React.CSSProperties = { background: "#22c55e", border: "none", padding: "8px 16px", borderRadius: 8, color: "white", cursor: "pointer", fontWeight: "bold" };
-const btnRed: React.CSSProperties = { background: "#ef4444", border: "none", padding: "8px 16px", borderRadius: 8, color: "white", cursor: "pointer", fontWeight: "bold" };
-const btnGray: React.CSSProperties = { background: "#334155", border: "none", padding: "8px 16px", borderRadius: 8, color: "white", cursor: "pointer", fontWeight: "bold" };
-const btnPurple: React.CSSProperties = { background: "#7c3aed", border: "none", padding: "8px 16px", borderRadius: 8, color: "white", cursor: "pointer", fontWeight: "bold" };
+// ─── Sub-componente de controles de progreso ──────────────────────────────────
+function ProgresoControles({
+  actual, total, onMas, onMenos, label,
+}: {
+  actual: number; total: number;
+  onMas: () => void; onMenos: () => void;
+  label?: string;
+}) {
+  return (
+    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      <button onClick={onMenos} disabled={actual <= 0}
+        style={{ background: "#334155", border: "none", borderRadius: 6, color: "white", cursor: actual <= 0 ? "not-allowed" : "pointer", width: 28, height: 28, fontSize: 16, opacity: actual <= 0 ? 0.4 : 1 }}>
+        −
+      </button>
+      <span style={{ color: "white", fontWeight: "bold", minWidth: 52, textAlign: "center" }}>
+        {label ?? `${actual}/${total}`}
+      </span>
+      <button onClick={onMas} disabled={actual >= total}
+        style={{ background: "#22c55e", border: "none", borderRadius: 6, color: "white", cursor: actual >= total ? "not-allowed" : "pointer", width: 28, height: 28, fontSize: 16, opacity: actual >= total ? 0.4 : 1 }}>
+        +
+      </button>
+    </div>
+  );
+}
+
+// ─── Estilos ──────────────────────────────────────────────────────────────────
+const tdStyle: React.CSSProperties    = { padding: "12px 14px", color: "white", borderBottom: "1px solid #1e293b", whiteSpace: "nowrap" };
+const tagStyle: React.CSSProperties   = { background: "#1e3a5f", color: "#60a5fa", padding: "4px 14px", borderRadius: 99, fontSize: 13, fontWeight: "bold" };
+const btnBlue: React.CSSProperties    = { background: "#3b82f6", border: "none", padding: "8px 16px", borderRadius: 8, color: "white", cursor: "pointer", fontWeight: "bold" };
+const btnGreen: React.CSSProperties   = { background: "#22c55e", border: "none", padding: "8px 16px", borderRadius: 8, color: "white", cursor: "pointer", fontWeight: "bold" };
+const btnRed: React.CSSProperties     = { background: "#ef4444", border: "none", padding: "8px 16px", borderRadius: 8, color: "white", cursor: "pointer", fontWeight: "bold" };
+const btnGray: React.CSSProperties    = { background: "#334155", border: "none", padding: "8px 16px", borderRadius: 8, color: "white", cursor: "pointer", fontWeight: "bold" };
+const btnPurple: React.CSSProperties  = { background: "#7c3aed", border: "none", padding: "8px 16px", borderRadius: 8, color: "white", cursor: "pointer", fontWeight: "bold" };
 
 export default Clients;
