@@ -12,25 +12,36 @@ interface Client {
   expiresAt: string;
   status: string;
   createdAt: string;
+
   ci: string | null;
   nombreCompleto: string | null;
   direccion: string | null;
   fechaNacimiento: string | null;
   extension: string | null;
+
+  sexo: string | null;
+  ciudad: string | null;
+
   profesion: string | null;
   celular: string | null;
   email: string | null;
+
   pideLibros: boolean;
   cantLibros: number;
   librosHechos: number;
+
   pideArticulos: boolean;
   cantArticulos: number;
   articulosHechos: number;
+
   pideDirector: boolean;
   edicionesHechas: number;
+
   pideFundador: boolean;
+
   notasServicio: string | null;
-   fotografia: string | null;
+
+  fotografia: string | null;
   fotoCarnet: string | null;
 }
 
@@ -260,20 +271,26 @@ function Clients() {
 const copiarSenapi = async (cliente: Client) => {
 
   const datos = {
+    tipoPersona: "natural",
+    tipoDocumento: "Carnet de identidad",
+    expedicion: cliente.extension,
+    nacionalidad: "Bolivia",
     nombreCompleto: cliente.nombreCompleto,
     ci: cliente.ci,
-    extension: cliente.extension,
     direccion: cliente.direccion,
     celular: cliente.celular,
     email: cliente.email,
     fechaNacimiento: cliente.fechaNacimiento,
+    sexo: cliente.sexo,
+    profesion: cliente.profesion,
+    ciudad: cliente.ciudad,
   };
 
   await navigator.clipboard.writeText(
     JSON.stringify(datos)
   );
 
-  alert("Datos copiados para SENAPI");
+  alert("✅ Datos copiados para SENAPI");
 
 };
   const regenerar = async (id: number) => {

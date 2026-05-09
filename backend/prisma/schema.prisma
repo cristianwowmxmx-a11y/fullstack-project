@@ -98,15 +98,21 @@ model Client {
   token           String        @unique
   expiresAt       DateTime
   status          String        @default("pendiente")
-  createdAt       DateTime      @default(now())
+ createdAt       DateTime      @default(now())
+
   ci              String?
   nombreCompleto  String?
   direccion       String?
   fechaNacimiento String?
   extension       String?
   profesion       String?
+ 
+  sexo            String?
+ciudad          String?
+ 
   celular         String?
   email           String?
+
   fotografia      String?
 fotoCarnet      String?
   pideLibros      Boolean       @default(false)
