@@ -8,12 +8,12 @@ datasource db {
 }
 
 model User {
-  id       Int    @id @default(autoincrement())
-  username String @unique
+  id       Int       @id @default(autoincrement())
+  username String    @unique
   password String
-  role     String @default("admin")
+  role     String    @default("admin")
   notes    Note[]
-   dayNotes DayNote[]
+  dayNotes DayNote[]
 }
 
 model Note {
@@ -39,7 +39,6 @@ model ClienteTask {
   createdAt   DateTime @default(now())
   clienteId   Int
   cliente     Client   @relation(fields: [clienteId], references: [id])
-  
 }
 
 model Person {
@@ -99,6 +98,7 @@ model Client {
   expiresAt         DateTime
   status            String        @default("pendiente")
   createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @default(now()) @updatedAt
 
   nombres           String?
   apellidoPaterno   String?
@@ -128,11 +128,17 @@ model Client {
   pideFundador      Boolean       @default(false)
   notasServicio     String?
 
+  clientUsername         String?   @unique
+  clientPassword         String?
+  credencialesGeneradaAt DateTime?
+
   entregas          Entrega[]
   magazines         Magazine[]
   books             Book[]
   clienteTasks      ClienteTask[]
   libroDetalles     LibroDetalle[]
+  mensajes          Mensaje[]
+  archivos          ClienteArchivo[]
 }
 
 model Entrega {
@@ -147,6 +153,7 @@ model Entrega {
   bookId       Int?
   book         Book?     @relation(fields: [bookId], references: [id])
 }
+
 model DayNote {
   id        Int      @id @default(autoincrement())
   text      String
@@ -155,6 +162,7 @@ model DayNote {
   userId    Int
   user      User     @relation(fields: [userId], references: [id])
 }
+
 model LibroDetalle {
   id         Int     @id @default(autoincrement())
   clienteId  Int
@@ -164,4 +172,26 @@ model LibroDetalle {
   senapi     Boolean @default(false)
   prioridad  String
   cliente    Client  @relation(fields: [clienteId], references: [id])
+}
+
+model Mensaje {
+  id        Int      @id @default(autoincrement())
+  clienteId Int
+  emisor    String   // "cliente" o "admin"
+  texto     String
+  leido     Boolean  @default(false)
+  createdAt DateTime @default(now())
+  cliente   Client   @relation(fields: [clienteId], references: [id])
+}
+
+model ClienteArchivo {
+  id          Int      @id @default(autoincrement())
+  clienteId   Int
+  tipo        String   // "libro", "articulo", "director", "fundador"
+  referenciaId Int?
+  titulo      String?
+  notas       String?
+  archivoUrl  String?
+  createdAt   DateTime @default(now())
+  cliente     Client   @relation(fields: [clienteId], references: [id])
 }

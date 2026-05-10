@@ -133,7 +133,7 @@ function ConfirmModal({ message, onConfirm, onCancel, confirmLabel = "Sí, confi
         <h3 style={{ marginBottom: 10 }}>¿Confirmar?</h3>
         <p style={{ color: "#94a3b8", marginBottom: 28, fontSize: 14 }}>{message}</p>
         <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-          <button onClick={onCancel}  style={btnGray}>{confirmLabel === "Sí, confirmar" ? "Cancelar" : "Cancelar"}</button>
+          <button onClick={onCancel}  style={btnGray}>Cancelar</button>
           <button onClick={onConfirm} style={btnGreen}>{confirmLabel}</button>
         </div>
       </div>
@@ -245,6 +245,13 @@ function Clients() {
   const [deletingId, setDeletingId]       = useState<number | null>(null);
   const [updatingId, setUpdatingId]       = useState<number | null>(null);
 
+  // ── Estados para credenciales ─────────────────────────────────────────────
+  const [credenciales, setCredenciales] = useState<{
+    clientUsername: string;
+    clientPassword?: string;
+  } | null>(null);
+  const [mostrarPassword, setMostrarPassword] = useState(false);
+
   // ── Modal de confirmación ──
   const [confirmOpen, setConfirmOpen]       = useState(false);
   const [confirmMessage, setConfirmMessage] = useState("");
@@ -269,10 +276,10 @@ function Clients() {
 
   const clientesMes = filtrarPorMes(clients);
 
-  // ── Confirm helper — doble wrapper para evitar bug de useState con funciones ──
+  // ── Confirm helper ────────────────────────────────────────────────────────
   const showConfirm = (message: string, action: () => void, label = "Sí, confirmar", icon = "🗑️") => {
     setConfirmMessage(message);
-    setConfirmAction(() => () => action()); // ← doble arrow: evita que React ejecute `action` como updater
+    setConfirmAction(() => () => action());
     setConfirmLabel(label);
     setConfirmIcon(icon);
     setConfirmOpen(true);
@@ -300,11 +307,6 @@ function Clients() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  /**
-   * Copia el JSON exacto que necesita el script Tampermonkey de SENAPI.
-   * Usa los campos separados; si faltan, deja string vacío para que el
-   * script sepa que no hay dato (no falla con null).
-   */
   const copiarSenapi = async (c: Client) => {
     const payload: SenapiPayload = {
       nombres:         c.nombres         ?? "",
@@ -394,6 +396,46 @@ function Clients() {
   const isExpired   = (expiresAt: string) => new Date() > new Date(expiresAt);
   const getDaysLeft = (expiresAt: string) =>
     Math.ceil((new Date(expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+
+  // ── Funciones de credenciales ─────────────────────────────────────────────
+  const cargarCredenciales = async (clienteId: number) => {
+    try {
+      const res = await fetch(`${API_URL}/clients/${clienteId}/credenciales`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        setCredenciales(data);
+      }
+    } catch (err) {
+      console.error("Error al cargar credenciales", err);
+    }
+  };
+
+  const regenerarCredenciales = async (clienteId: number) => {
+    try {
+      const res = await fetch(`${API_URL}/clients/${clienteId}/regenerar-credenciales`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCredenciales({
+          clientUsername: data.clientUsername,
+          clientPassword: data.clientPassword,
+        });
+        setMostrarPassword(true);
+      }
+    } catch (err) {
+      console.error("Error al regenerar credenciales", err);
+    }
+  };
+
+  // ── Cargar credenciales al seleccionar un cliente ─────────────────────────
+  useEffect(() => {
+    if (selected) {
+      cargarCredenciales(selected.id);
+      setMostrarPassword(false);
+    }
+  }, [selected?.id]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -530,6 +572,65 @@ function Clients() {
                       onClick={() => window.open(selected.fotoCarnet!, "_blank")}
                     />
                     <p style={{ color: "#64748b", fontSize: 10, marginTop: 4 }}>Click para ver completo</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── SECCIÓN CREDENCIALES ───────────────────────────────────── */}
+            {credenciales && (
+              <div style={{ background: "#0f172a", padding: 20, borderRadius: 12, marginBottom: 24 }}>
+                <h3 style={{ marginBottom: 16, color: "#94a3b8", fontSize: 13, textTransform: "uppercase", letterSpacing: 1 }}>
+                  🔐 Credenciales del Cliente
+                </h3>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: 16 }}>
+                  <div style={{ background: "#1e293b", padding: 14, borderRadius: 8 }}>
+                    <p style={{ color: "#64748b", fontSize: 11, marginBottom: 4, textTransform: "uppercase" }}>👤 Usuario</p>
+                    <p style={{ color: "white", fontSize: 14, fontWeight: "bold" }}>{credenciales.clientUsername || "—"}</p>
+                  </div>
+                  <div style={{ background: "#1e293b", padding: 14, borderRadius: 8 }}>
+                    <p style={{ color: "#64748b", fontSize: 11, marginBottom: 4, textTransform: "uppercase" }}>🔑 Contraseña</p>
+                    {credenciales.clientPassword ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <p style={{ color: "white", fontSize: 14, fontWeight: "bold", margin: 0 }}>
+                          {mostrarPassword ? credenciales.clientPassword : "••••••••"}
+                        </p>
+                        <button
+                          onClick={() => setMostrarPassword(!mostrarPassword)}
+                          style={{ background: "none", border: "none", color: "#60a5fa", cursor: "pointer", fontSize: 14 }}
+                        >
+                          {mostrarPassword ? "🙈" : "👁️"}
+                        </button>
+                      </div>
+                    ) : (
+                      <p style={{ color: "#64748b", fontSize: 13 }}>Usa el botón "Regenerar credenciales" para obtener una nueva.</p>
+                    )}
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => regenerarCredenciales(selected.id)}
+                  style={{
+                    marginTop: 16,
+                    background: "#7c3aed",
+                    border: "none",
+                    padding: "10px 20px",
+                    borderRadius: 8,
+                    color: "white",
+                    fontWeight: "bold",
+                    cursor: "pointer",
+                    fontSize: 13,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  🔄 Regenerar credenciales
+                </button>
+
+                {credenciales.clientPassword && (
+                  <div style={{ background: "#1e3a5f", color: "#60a5fa", padding: 10, borderRadius: 8, marginTop: 12, fontSize: 13 }}>
+                    ⚠️ Comparte esta contraseña con el cliente por un canal seguro. Al recargar la página no volverá a verse.
                   </div>
                 )}
               </div>

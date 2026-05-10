@@ -26,9 +26,9 @@ function Navbar() {
   const isActive = (path: string) => location.pathname === path;
 
   // Ocultar navbar en admin y formulario
-  if (location.pathname.startsWith("/admin") || location.pathname.startsWith("/formulario")) {
-    return null;
-  }
+  if (location.pathname.startsWith("/admin") || location.pathname.startsWith("/formulario") || location.pathname.startsWith("/cliente")) {
+  return null;
+}
 
   return (
     <nav style={{

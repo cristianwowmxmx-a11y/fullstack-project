@@ -9,6 +9,7 @@ import Notes from "./Notes";
 import Clients from "./Clients";
 import Entregas from "./Entregas";
 import GlobalSearch from "../components/GlobalSearch";
+import AdminMensajes from "./AdminMensajes";
 
 import.meta.env.VITE_API_URL
 
@@ -60,6 +61,7 @@ function Admin() {
     { key: "clients", label: "👥 Clientes" },
     { key: "entregas", label: "📦 Entregas" },
     { key: "search", label: "🔍 Buscador" },
+    { key: "mensajes", label: "💬 Mensajes" },
   ];
 
   const handleSection = (key: string) => { setSection(key); setSidebarOpen(false); };
@@ -372,6 +374,7 @@ const res = await fetch(`${import.meta.env.VITE_API_URL}/stats`, {
         {section === "clients" && <Clients />}
         {section === "entregas" && <Entregas />}
         {section === "search" && <GlobalSearch />}
+        {section === "mensajes" && <AdminMensajes />}
       </div>
     </div>
   );

@@ -52,8 +52,12 @@ function Login() {
         return;
       }
 
-      login(data.token, data.username);
-      navigate("/admin");
+      login(data.token, data.username, data.role, data.clienteId);
+if (data.role === "admin") {
+  navigate("/admin");
+} else {
+  navigate("/cliente");
+}
     } catch {
       setError("Error al conectar con el servidor");
     } finally {
