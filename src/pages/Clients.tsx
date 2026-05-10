@@ -578,11 +578,13 @@ function Clients() {
             )}
 
             {/* ── SECCIÓN CREDENCIALES ───────────────────────────────────── */}
-            {credenciales && (
-              <div style={{ background: "#0f172a", padding: 20, borderRadius: 12, marginBottom: 24 }}>
-                <h3 style={{ marginBottom: 16, color: "#94a3b8", fontSize: 13, textTransform: "uppercase", letterSpacing: 1 }}>
-                  🔐 Credenciales del Cliente
-                </h3>
+                     {/* ── SECCIÓN CREDENCIALES ───────────────────────────────────── */}
+            <div style={{ background: "#0f172a", padding: 20, borderRadius: 12, marginBottom: 24 }}>
+              <h3 style={{ marginBottom: 16, color: "#94a3b8", fontSize: 13, textTransform: "uppercase", letterSpacing: 1 }}>
+                🔐 Credenciales del Cliente
+              </h3>
+
+              {credenciales ? (
                 <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: 16 }}>
                   <div style={{ background: "#1e293b", padding: 14, borderRadius: 8 }}>
                     <p style={{ color: "#64748b", fontSize: 11, marginBottom: 4, textTransform: "uppercase" }}>👤 Usuario</p>
@@ -607,34 +609,38 @@ function Clients() {
                     )}
                   </div>
                 </div>
+              ) : (
+                <p style={{ color: "#64748b", fontSize: 13, marginBottom: 16 }}>
+                  Este cliente aún no tiene credenciales de acceso. Haz clic en el botón para generarlas.
+                </p>
+              )}
 
-                <button
-                  onClick={() => regenerarCredenciales(selected.id)}
-                  style={{
-                    marginTop: 16,
-                    background: "#7c3aed",
-                    border: "none",
-                    padding: "10px 20px",
-                    borderRadius: 8,
-                    color: "white",
-                    fontWeight: "bold",
-                    cursor: "pointer",
-                    fontSize: 13,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                  }}
-                >
-                  🔄 Regenerar credenciales
-                </button>
+              <button
+                onClick={() => regenerarCredenciales(selected.id)}
+                style={{
+                  marginTop: 16,
+                  background: "#7c3aed",
+                  border: "none",
+                  padding: "10px 20px",
+                  borderRadius: 8,
+                  color: "white",
+                  fontWeight: "bold",
+                  cursor: "pointer",
+                  fontSize: 13,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                🔄 Regenerar credenciales
+              </button>
 
-                {credenciales.clientPassword && (
-                  <div style={{ background: "#1e3a5f", color: "#60a5fa", padding: 10, borderRadius: 8, marginTop: 12, fontSize: 13 }}>
-                    ⚠️ Comparte esta contraseña con el cliente por un canal seguro. Al recargar la página no volverá a verse.
-                  </div>
-                )}
-              </div>
-            )}
+              {credenciales?.clientPassword && (
+                <div style={{ background: "#1e3a5f", color: "#60a5fa", padding: 10, borderRadius: 8, marginTop: 12, fontSize: 13 }}>
+                  ⚠️ Comparte esta contraseña con el cliente por un canal seguro. Al recargar la página no volverá a verse.
+                </div>
+              )}
+            </div>
 
             {/* Datos personales */}
             <h3 style={{ marginBottom: 16, color: "#94a3b8", fontSize: 13, textTransform: "uppercase", letterSpacing: 1 }}>Datos Personales</h3>
