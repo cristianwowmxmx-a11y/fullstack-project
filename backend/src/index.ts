@@ -425,7 +425,7 @@ app.post(
   }
 );
 
-// ─── ACTUALIZACIÓN DEL FORMULARIO DEL CLIENTE ────────────────────────────────
+// ─── ACTUALIZACIÓN DEL FORMULARIO DEL CLIENTE (CORREGIDA) ────────────────────
 app.put("/clients/form/:token", async (req, res) => {
   const client = await prisma.client.findUnique({ where: { token: req.params.token } });
   if (!client) return res.status(404).json({ error: "Link no válido" });
@@ -453,13 +453,19 @@ app.put("/clients/form/:token", async (req, res) => {
     },
   });
 
-  // ── Generar credenciales automáticas ────────────────────────
-  if (!updated.clientUsername || !updated.clientPassword) {
-    const nombresArray = (nombres || "").split(" ");
-    const apellidoPaternoRaw = (apellidoPaterno || "").toLowerCase();
-    const baseUsername = `${nombresArray[0] || ""}.${apellidoPaternoRaw}`.replace(/\s+/g, "").normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  // ── Generar credenciales automáticas (si no tiene) ──────────
+  let username = updated.clientUsername;
+  let password = "";
 
-    let username = baseUsername;
+  if (!updated.clientUsername || !updated.clientPassword) {
+    const nombresArray = (updated.nombres || "").split(" ");
+    const apellidoPaternoRaw = (updated.apellidoPaterno || "").toLowerCase();
+    const baseUsername = `${nombresArray[0] || ""}.${apellidoPaternoRaw}`
+      .replace(/\s+/g, "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+
+    username = baseUsername;
     let counter = 1;
     while (await prisma.client.findFirst({ where: { clientUsername: username } })) {
       username = `${baseUsername}${counter}`;
@@ -467,13 +473,11 @@ app.put("/clients/form/:token", async (req, res) => {
     }
 
     const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    let password = "";
     for (let i = 0; i < 8; i++) {
       password += chars.charAt(Math.floor(Math.random() * chars.length));
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-
     await prisma.client.update({
       where: { id: updated.id },
       data: {
@@ -482,51 +486,47 @@ app.put("/clients/form/:token", async (req, res) => {
         credencialesGeneradaAt: new Date(),
       },
     });
+  }
 
+  // ── Enviar credenciales SIEMPRE (usa los datos más recientes) ──
   const LINK_PORTAL = process.env.CLIENT_PORTAL_URL || "https://tudominio.com/cliente";
+  const nombreCompletoEnvio = updated.nombreCompleto || [updated.nombres, updated.apellidoPaterno, updated.apellidoMaterno].filter(Boolean).join(" ") || "Cliente";
+  const emailEnvio = updated.email || "";
+  const celularEnvio = updated.celular || "";
 
-console.log("⏰ Programando envío de credenciales en 5 segundos...");
-console.log("📧 Datos para envío:", {
-  email: email || cliente.email,
-  nombreCompleto,
-  username,
-  password,
-  linkPortal: LINK_PORTAL,
-  celular: celular || cliente.celular,
-});
-
-setTimeout(() => {
-  console.log("🚀 Iniciando envío de credenciales...");
-
-  enviarCorreo({
-    email: email || cliente.email || "",
-    nombreCompleto: nombreCompleto || cliente.nombreCompleto || "",
-    username: username,
-    password: password,
-    linkPortal: LINK_PORTAL,
-  })
-    .then(() => console.log("✅ Correo enviado correctamente"))
-    .catch((err) => console.error("❌ Error al enviar correo:", err));
-
-  enviarWhatsAppCliente(
-    celular || cliente.celular || "",
-    nombreCompleto || cliente.nombreCompleto || "",
+  console.log("⏰ Programando envío de credenciales en 5 segundos...");
+  console.log("📧 Datos para envío:", {
+    email: emailEnvio,
+    nombreCompleto: nombreCompletoEnvio,
     username,
     password,
-    LINK_PORTAL
-  )
-    .then(() => console.log("✅ WhatsApp enviado correctamente"))
-    .catch((err) => console.error("❌ Error al enviar WhatsApp:", err));
+    linkPortal: LINK_PORTAL,
+    celular: celularEnvio,
+  });
 
-}, 5000); // 5 segundos para prueba
+  setTimeout(() => {
+    console.log("🚀 Iniciando envío de credenciales...");
 
-    res.json({
-      ...updated,
-      clientUsername: username,
-      clientPassword: password,
-    });
-    return;
-  }
+    enviarCorreo({
+      email: emailEnvio,
+      nombreCompleto: nombreCompletoEnvio,
+      username: username,
+      password: password,
+      linkPortal: LINK_PORTAL,
+    })
+      .then(() => console.log("✅ Correo enviado correctamente"))
+      .catch((err) => console.error("❌ Error al enviar correo:", err));
+
+    enviarWhatsAppCliente(
+      celularEnvio,
+      nombreCompletoEnvio,
+      username,
+      password,
+      LINK_PORTAL
+    )
+      .then(() => console.log("✅ WhatsApp enviado correctamente"))
+      .catch((err) => console.error("❌ Error al enviar WhatsApp:", err));
+  }, 5000); // 5 segundos para prueba (después cambiar a 10 * 60 * 1000)
 
   // ── Recrear tareas y entrega ──────────────────────────────
   await prisma.clienteTask.deleteMany({ where: { clienteId: updated.id } });
@@ -682,6 +682,7 @@ app.post("/clients/:id/regenerar-credenciales", auth, async (req, res) => {
       credencialesGeneradaAt: new Date(),
     },
   });
+
   // ── Enviar credenciales automáticamente ────────────────────────
   const LINK_PORTAL = process.env.CLIENT_PORTAL_URL || "https://tudominio.com/cliente";
   const nombreCompleto = cliente.nombreCompleto || [cliente.nombres, cliente.apellidoPaterno, cliente.apellidoMaterno].filter(Boolean).join(" ") || "Cliente";
@@ -723,7 +724,6 @@ app.post("/clients/:id/regenerar-credenciales", auth, async (req, res) => {
   }, 5000); // 5 segundos para prueba (después cambiar a 10 * 60 * 1000)
 
   res.json({ clientUsername: username, clientPassword: password });
-
 });
 
 // ─── MENSAJES ─────────────────────────────────────────────────────────────────
