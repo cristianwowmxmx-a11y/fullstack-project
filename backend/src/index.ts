@@ -483,23 +483,42 @@ app.put("/clients/form/:token", async (req, res) => {
       },
     });
 
-    const LINK_PORTAL = process.env.CLIENT_PORTAL_URL || "https://tudominio.com/cliente";
-    setTimeout(() => {
-      enviarCorreo({
-        email: email,
-        nombreCompleto: nombreCompleto,
-        username: username,
-        password: password,
-        linkPortal: LINK_PORTAL,
-      });
-      enviarWhatsAppCliente(
-        celular,
-        nombreCompleto,
-        username,
-        password,
-        LINK_PORTAL
-      );
-    }, 5000);
+  const LINK_PORTAL = process.env.CLIENT_PORTAL_URL || "https://tudominio.com/cliente";
+
+console.log("⏰ Programando envío de credenciales en 5 segundos...");
+console.log("📧 Datos para envío:", {
+  email: email || cliente.email,
+  nombreCompleto,
+  username,
+  password,
+  linkPortal: LINK_PORTAL,
+  celular: celular || cliente.celular,
+});
+
+setTimeout(() => {
+  console.log("🚀 Iniciando envío de credenciales...");
+
+  enviarCorreo({
+    email: email || cliente.email || "",
+    nombreCompleto: nombreCompleto || cliente.nombreCompleto || "",
+    username: username,
+    password: password,
+    linkPortal: LINK_PORTAL,
+  })
+    .then(() => console.log("✅ Correo enviado correctamente"))
+    .catch((err) => console.error("❌ Error al enviar correo:", err));
+
+  enviarWhatsAppCliente(
+    celular || cliente.celular || "",
+    nombreCompleto || cliente.nombreCompleto || "",
+    username,
+    password,
+    LINK_PORTAL
+  )
+    .then(() => console.log("✅ WhatsApp enviado correctamente"))
+    .catch((err) => console.error("❌ Error al enviar WhatsApp:", err));
+
+}, 5000); // 5 segundos para prueba
 
     res.json({
       ...updated,
@@ -663,8 +682,48 @@ app.post("/clients/:id/regenerar-credenciales", auth, async (req, res) => {
       credencialesGeneradaAt: new Date(),
     },
   });
+  // ── Enviar credenciales automáticamente ────────────────────────
+  const LINK_PORTAL = process.env.CLIENT_PORTAL_URL || "https://tudominio.com/cliente";
+  const nombreCompleto = cliente.nombreCompleto || [cliente.nombres, cliente.apellidoPaterno, cliente.apellidoMaterno].filter(Boolean).join(" ") || "Cliente";
+  const emailCliente = cliente.email || "";
+  const celularCliente = cliente.celular || "";
+
+  console.log("⏰ Programando envío de credenciales en 5 segundos...");
+  console.log("📧 Datos para envío:", {
+    email: emailCliente,
+    nombreCompleto,
+    username,
+    password,
+    linkPortal: LINK_PORTAL,
+    celular: celularCliente,
+  });
+
+  setTimeout(() => {
+    console.log("🚀 Iniciando envío de credenciales...");
+
+    enviarCorreo({
+      email: emailCliente,
+      nombreCompleto,
+      username,
+      password,
+      linkPortal: LINK_PORTAL,
+    })
+      .then(() => console.log("✅ Correo enviado correctamente"))
+      .catch((err) => console.error("❌ Error al enviar correo:", err));
+
+    enviarWhatsAppCliente(
+      celularCliente,
+      nombreCompleto,
+      username,
+      password,
+      LINK_PORTAL
+    )
+      .then(() => console.log("✅ WhatsApp enviado correctamente"))
+      .catch((err) => console.error("❌ Error al enviar WhatsApp:", err));
+  }, 5000); // 5 segundos para prueba (después cambiar a 10 * 60 * 1000)
 
   res.json({ clientUsername: username, clientPassword: password });
+
 });
 
 // ─── MENSAJES ─────────────────────────────────────────────────────────────────
