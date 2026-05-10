@@ -499,7 +499,7 @@ app.put("/clients/form/:token", async (req, res) => {
         password,
         LINK_PORTAL
       );
-    }, 10 * 60 * 1000);
+    }, 5000);
 
     res.json({
       ...updated,
