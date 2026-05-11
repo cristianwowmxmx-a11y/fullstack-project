@@ -618,6 +618,7 @@ app.put("/clients/:id/regenerar", auth, async (req, res) => {
 app.delete("/clients/:id", auth, async (req, res) => {
   const id = Number(req.params.id);
 
+  // 1. Desvincula revistas y libros
   await prisma.magazine.updateMany({
     where: { clienteId: id },
     data: { clienteId: null },
@@ -627,15 +628,17 @@ app.delete("/clients/:id", auth, async (req, res) => {
     data: { clienteId: null },
   });
 
+  // 2. Elimina dependencias directas (¡agregamos Mensaje aquí!)
+  await prisma.mensaje.deleteMany({ where: { clienteId: id } });  // ← NUEVA LÍNEA
   await prisma.libroDetalle.deleteMany({ where: { clienteId: id } });
   await prisma.clienteTask.deleteMany({ where: { clienteId: id } });
   await prisma.entrega.deleteMany({ where: { clienteId: id } });
 
+  // 3. Ahora sí borra el cliente
   await prisma.client.delete({ where: { id } });
 
   res.json({ ok: true });
 });
-
 // ─── CREDENCIALES ─────────────────────────────────────────────────────────────
 app.get("/clients/:id/credenciales", auth, async (req, res) => {
   const id = Number(req.params.id);
