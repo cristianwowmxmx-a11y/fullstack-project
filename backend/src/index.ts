@@ -868,14 +868,49 @@ app.get("/cliente/entregas", authCliente, async (req: any, res) => {
   res.json(entregas);
 });
 
-app.get("/cliente/mensajes", authCliente, async (req: any, res) => {
-  const mensajes = await prisma.mensaje.findMany({
-    where: { clienteId: req.clienteId },
-    orderBy: { createdAt: "asc" },
-  });
-  res.json(mensajes);
-});
+app.post("/cliente/mensajes", authCliente, async (req: any, res) => {
+  const { texto } = req.body;
+  if (!texto || !texto.trim())
+    return res.status(400).json({ error: "El mensaje no puede estar vacío" });
 
+  const mensaje = await prisma.mensaje.create({
+    data: {
+      clienteId: req.clienteId,
+      emisor: "cliente",
+      texto,
+      leido: false,
+    },
+  });
+
+  // Notificar al admin SOLO si no hay mensajes sin leer del cliente
+  try {
+    const noLeidos = await prisma.mensaje.count({
+      where: { 
+        clienteId: req.clienteId, 
+        emisor: "cliente",
+        leido: false 
+      },
+    });
+
+    // Si solo hay 1 mensaje no leído (el que se acaba de crear), notificar
+    if (noLeidos === 1) {
+      const { notificarAdminMensaje } = await import("./whatsapp");
+      const cliente = await prisma.client.findUnique({
+        where: { id: req.clienteId },
+        select: { nombreCompleto: true, nombres: true, apellidoPaterno: true },
+      });
+      const nombre =
+        cliente?.nombreCompleto ||
+        [cliente?.nombres, cliente?.apellidoPaterno].filter(Boolean).join(" ") ||
+        "Cliente";
+      await notificarAdminMensaje(nombre);
+    }
+  } catch (err) {
+    console.warn("No se pudo notificar por WhatsApp:", err);
+  }
+
+  res.json(mensaje);
+});
 app.post("/cliente/mensajes", authCliente, async (req: any, res) => {
   const { texto } = req.body;
   if (!texto || !texto.trim())
