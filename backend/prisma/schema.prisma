@@ -116,6 +116,7 @@ model Client {
   email             String?
   fotografia        String?
   fotoCarnet        String?
+fotoCarnet2   String? 
 
   pideLibros        Boolean       @default(false)
   cantLibros        Int           @default(0)

@@ -399,6 +399,7 @@ app.post(
   upload.fields([
     { name: "fotografia", maxCount: 1 },
     { name: "fotoCarnet", maxCount: 1 },
+     { name: "fotoCarnet2", maxCount: 1 },
   ]),
   async (req: any, res: any) => {
     const client = await prisma.client.findUnique({
@@ -415,6 +416,9 @@ app.post(
     }
     if (files?.fotoCarnet?.[0]) {
       data.fotoCarnet = await subirImagen(files.fotoCarnet[0].buffer, "clientes/carnets");
+    }
+     if (files?.fotoCarnet2?.[0]) {    // ← Agregar este bloque
+      data.fotoCarnet2 = await subirImagen(files.fotoCarnet2[0].buffer, "clientes/carnets");
     }
 
     const updated = await prisma.client.update({

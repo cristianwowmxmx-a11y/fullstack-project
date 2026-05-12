@@ -574,6 +574,16 @@ function Clients() {
                     <p style={{ color: "#64748b", fontSize: 10, marginTop: 4 }}>Click para ver completo</p>
                   </div>
                 )}
+                {(selected as any).fotoCarnet2 && (
+  <div style={{ background: "#0f172a", padding: 14, borderRadius: 8, textAlign: "center" }}>
+    <p style={{ color: "#64748b", fontSize: 11, marginBottom: 8, textTransform: "uppercase" }}>Carnet (Reverso)</p>
+    <img src={(selected as any).fotoCarnet2} alt="carnet2"
+      style={{ width: 140, height: 100, objectFit: "cover", borderRadius: 8, border: "3px solid #64748b", cursor: "pointer" }}
+      onClick={() => window.open((selected as any).fotoCarnet2!, "_blank")}
+    />
+    <p style={{ color: "#64748b", fontSize: 10, marginTop: 4 }}>Click para ver completo</p>
+  </div>
+)}
               </div>
             )}
 
