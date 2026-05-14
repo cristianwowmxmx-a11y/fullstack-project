@@ -171,6 +171,23 @@ function PagoCard({
           {pago.descripcion && (
             <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 6 }}>📝 {pago.descripcion}</p>
           )}
+          {/* Productos del carrito asociados al pago */}
+{pago.productos && (() => {
+  try {
+    const prods = JSON.parse(pago.productos);
+    if (Array.isArray(prods) && prods.length > 0) {
+      return (
+        <div style={{ marginTop: 6 }}>
+          <p style={{ color: "#64748b", fontSize: 11, marginBottom: 4 }}>Productos solicitados:</p>
+          {prods.map((prod: any, idx: number) => (
+            <span key={idx} style={{ color: "#60a5fa", fontSize: 11, marginRight: 8 }}>📌 {prod.nombre}</span>
+          ))}
+        </div>
+      );
+    }
+  } catch { return null; }
+  return null;
+})()}
           {pago.motivoRechazo && (
             <p style={{ color: "#ef4444", fontSize: 12, marginTop: 6 }}>❌ {pago.motivoRechazo}</p>
           )}

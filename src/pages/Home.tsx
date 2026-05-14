@@ -268,6 +268,10 @@ function CatalogoProductos() {
   const [productos, setProductos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<any | null>(null);
+  const [carrito, setCarrito] = useState<any[]>(() => {
+    const saved = localStorage.getItem("carrito");
+    return saved ? JSON.parse(saved) : [];
+  });
 
   useEffect(() => {
     fetch(`${import.meta.env.VITE_API_URL}/productos`)
@@ -275,6 +279,25 @@ function CatalogoProductos() {
       .then(data => { setProductos(data); setLoading(false); })
       .catch(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem("carrito", JSON.stringify(carrito));
+  }, [carrito]);
+
+  const agregarAlCarrito = (producto: any) => {
+    setCarrito(prev => [...prev, producto]);
+  };
+
+  const quitarDelCarrito = (index: number) => {
+    setCarrito(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const total = carrito.reduce((sum, p) => {
+    const precio = p.descuento > 0 ? p.precio - (p.precio * p.descuento / 100) : p.precio;
+    return sum + precio;
+  }, 0);
+
+  const adelanto = total * 0.30; // 30% de adelanto sugerido
 
   if (loading) return <p style={{ color: "#94a3b8", textAlign: "center", gridColumn: "1/-1" }}>Cargando productos...</p>;
   if (productos.length === 0) return <p style={{ color: "#64748b", textAlign: "center", gridColumn: "1/-1" }}>Próximamente nuevos servicios.</p>;
@@ -349,16 +372,60 @@ function CatalogoProductos() {
               </span>
             </div>
             <button onClick={() => {
+              agregarAlCarrito(selected);
               setSelected(null);
-              document.getElementById("seccion-pago")?.scrollIntoView({ behavior: "smooth" });
             }} style={{
               width: "100%", padding: 14,
-              background: "#3b82f6", border: "none", borderRadius: 10,
+              background: "#22c55e", border: "none", borderRadius: 10,
               color: "white", fontWeight: "bold", fontSize: 16, cursor: "pointer",
             }}>
-              🛒 Quiero este servicio
+              🛒 Agregar al carrito
             </button>
           </div>
+        </div>
+      )}
+
+      {/* ─── CARRITO FLOTANTE ─────────────────────────────────────── */}
+      {carrito.length > 0 && (
+        <div style={{
+          position: "fixed", bottom: 20, right: 20, zIndex: 999,
+          background: "#1e293b", borderRadius: 16, padding: 16,
+          boxShadow: "0 8px 24px rgba(0,0,0,0.6)", minWidth: 260,
+          maxWidth: 320,
+        }}>
+          <h3 style={{ marginBottom: 12, color: "#f59e0b", fontSize: 15 }}>🛒 Mi carrito ({carrito.length})</h3>
+          <div style={{ maxHeight: 200, overflowY: "auto", marginBottom: 12 }}>
+            {carrito.map((item, i) => {
+              const precio = item.descuento > 0 ? item.precio - (item.precio * item.descuento / 100) : item.precio;
+              return (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "1px solid #334155", color: "#94a3b8", fontSize: 12 }}>
+                  <span>{item.nombre}</span>
+                  <span>Bs {precio.toFixed(2)}</span>
+                  <button onClick={() => quitarDelCarrito(i)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: 14 }}>✕</button>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ borderTop: "1px solid #334155", paddingTop: 8, marginBottom: 8 }}>
+            <p style={{ color: "white", fontSize: 13 }}>Total: <strong style={{ color: "#22c55e" }}>Bs {total.toFixed(2)}</strong></p>
+            <p style={{ color: "#60a5fa", fontSize: 12 }}>Adelanto sugerido (30%): <strong>Bs {adelanto.toFixed(2)}</strong></p>
+          </div>
+          <button onClick={() => {
+            document.getElementById("seccion-pago")?.scrollIntoView({ behavior: "smooth" });
+          }} style={{
+            width: "100%", padding: 10,
+            background: "#3b82f6", border: "none", borderRadius: 8,
+            color: "white", fontWeight: "bold", fontSize: 14, cursor: "pointer",
+          }}>
+            Pagar adelanto
+          </button>
+          <button onClick={() => setCarrito([])} style={{
+            width: "100%", padding: 8, marginTop: 6,
+            background: "none", border: "1px solid #ef4444", borderRadius: 8,
+            color: "#ef4444", fontSize: 12, cursor: "pointer",
+          }}>
+            Vaciar carrito
+          </button>
         </div>
       )}
     </>
@@ -375,30 +442,50 @@ function SeccionPago() {
   const [enviando, setEnviando] = useState(false);
   const [mensaje, setMensaje] = useState("");
 
+  // Obtener carrito para enviar junto con el pago
+  const getCarritoActual = (): any[] => {
+    try {
+      return JSON.parse(localStorage.getItem("carrito") || "[]");
+    } catch { return []; }
+  };
+
   const handleSubirComprobante = async () => {
     if (!comprobante || !nombreDeclarado || !monto) return;
     setEnviando(true);
+    const carrito = getCarritoActual();
     const formData = new FormData();
     formData.append("comprobante", comprobante);
     formData.append("tipo", "imagen");
     formData.append("nombreDeclarado", nombreDeclarado);
     formData.append("monto", monto);
+    formData.append("productos", JSON.stringify(carrito.map(p => ({ id: p.id, nombre: p.nombre }))));
     const res = await fetch(`${import.meta.env.VITE_API_URL}/pagos`, { method: "POST", body: formData });
-    if (res.ok) setMensaje("✅ Comprobante enviado. El equipo lo revisará pronto.");
-    else setMensaje("❌ Error al enviar. Intenta de nuevo.");
+    if (res.ok) {
+      setMensaje("✅ Comprobante enviado. El equipo lo revisará pronto.");
+      localStorage.removeItem("carrito"); // limpiar carrito
+    } else setMensaje("❌ Error al enviar. Intenta de nuevo.");
     setEnviando(false);
   };
 
   const handleDeclararPago = async () => {
     if (!nombreDeclarado || !monto) return;
     setEnviando(true);
+    const carrito = getCarritoActual();
     const res = await fetch(`${import.meta.env.VITE_API_URL}/pagos`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nombreDeclarado, monto: Number(monto), tipo: "declarado", descripcion }),
+      body: JSON.stringify({
+        nombreDeclarado,
+        monto: Number(monto),
+        tipo: "declarado",
+        descripcion,
+        productos: JSON.stringify(carrito.map(p => ({ id: p.id, nombre: p.nombre }))),
+      }),
     });
-    if (res.ok) setMensaje("✅ Pago declarado. El equipo lo verificará pronto.");
-    else setMensaje("❌ Error al enviar. Intenta de nuevo.");
+    if (res.ok) {
+      setMensaje("✅ Pago declarado. El equipo lo verificará pronto.");
+      localStorage.removeItem("carrito");
+    } else setMensaje("❌ Error al enviar. Intenta de nuevo.");
     setEnviando(false);
   };
 

@@ -222,14 +222,14 @@ model Pago {
   monto           Float
   tipo            String   // "imagen" o "declarado"
   descripcion     String?
-  imagenUrl       String?  // comprobante
-  estado          String   @default("pendiente") // "pendiente", "verificado", "rechazado"
+  imagenUrl       String?
+  estado          String   @default("pendiente")
   motivoRechazo   String?
+  productos       String?  // ← NUEVO: JSON con los IDs y nombres de productos del carrito
   creadoEn        DateTime @default(now())
-  clienteId       Int?     // se asigna cuando se verifica y se crea el cliente
+  clienteId       Int?
   cliente         Client?  @relation(fields: [clienteId], references: [id])
 }
-
 model Pedido {
   id            Int          @id @default(autoincrement())
   clienteId     Int

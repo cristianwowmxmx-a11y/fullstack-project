@@ -412,7 +412,7 @@ app.delete("/productos/:id", auth, async (req, res) => {
 
 // ─── PAGOS ────────────────────────────────────────────────────────────────────
 app.post("/pagos", upload.single("comprobante"), async (req: any, res) => {
-  const { nombreDeclarado, monto, tipo, descripcion } = req.body;
+  const { nombreDeclarado, monto, tipo, descripcion, productos } = req.body;
   let imagenUrl: string | undefined;
   if (req.file) {
     imagenUrl = await subirImagen(req.file.buffer, "pagos/comprobantes");
@@ -424,8 +424,18 @@ app.post("/pagos", upload.single("comprobante"), async (req: any, res) => {
       tipo: tipo || (imagenUrl ? "imagen" : "declarado"),
       descripcion: descripcion || undefined,
       imagenUrl,
+      productos: productos || null,  // ← guardar productos
     },
   });
+  // Notificar al admin por WhatsApp
+  try {
+    const { notificarAdminMensaje } = await import("./whatsapp");
+    await notificarAdminMensaje(`Nuevo pago pendiente de ${nombreDeclarado} por Bs ${monto}`);
+  } catch (err) {
+    console.warn("No se pudo notificar al admin:", err);
+  }
+  res.json(pago);
+});
   // Notificar al admin por WhatsApp
   try {
     const { notificarAdminMensaje } = await import("./whatsapp");
