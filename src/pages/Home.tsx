@@ -75,8 +75,7 @@ function Home() {
       <section style={{
         height: "100vh", display: "flex", alignItems: "center",
         justifyContent: "center", textAlign: "center",
-        padding: "20px", position: "relative", zIndex: 1,
-        paddingTop: 80,
+        padding: "20px", position: "relative", zIndex: 1, paddingTop: 80,
       }}>
         <div style={{ animation: "fadeIn 1s ease" }}>
           {/* LOGO */}
@@ -183,48 +182,49 @@ function Home() {
           ))}
         </div>
       </section>
-{/* ─── CATÁLOGO DE PRODUCTOS ─────────────────────────────────── */}
-<section style={{
-  padding: isMobile ? "40px 20px" : "60px 40px",
-  maxWidth: 1100, margin: "0 auto", position: "relative", zIndex: 1,
-}}>
-  <div style={{ textAlign: "center", marginBottom: 40 }}>
-    <p style={{ color: "#3b82f6", letterSpacing: 4, fontSize: 12, textTransform: "uppercase", marginBottom: 12 }}>
-      Catálogo de Servicios
-    </p>
-    <h2 style={{ fontSize: isMobile ? 24 : 36, fontWeight: 700, marginBottom: 16 }}>
-      Nuestros Productos Editoriales
-    </h2>
-    <div style={{ width: 60, height: 3, background: "#3b82f6", margin: "0 auto 20px", borderRadius: 99 }} />
-  </div>
 
-  <div id="catalogo" style={{
-    display: "grid",
-    gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)",
-    gap: 20,
-  }}>
-    {/* Las tarjetas se cargan dinámicamente desde /productos */}
-    <CatalogoProductos />
-  </div>
-</section>
+      {/* ─── CATÁLOGO DE PRODUCTOS ─────────────────────────────────── */}
+      <section style={{
+        padding: isMobile ? "40px 20px" : "60px 40px",
+        maxWidth: 1100, margin: "0 auto", position: "relative", zIndex: 1,
+      }}>
+        <div style={{ textAlign: "center", marginBottom: 40 }}>
+          <p style={{ color: "#3b82f6", letterSpacing: 4, fontSize: 12, textTransform: "uppercase", marginBottom: 12 }}>
+            Catálogo de Servicios
+          </p>
+          <h2 style={{ fontSize: isMobile ? 24 : 36, fontWeight: 700, marginBottom: 16 }}>
+            Nuestros Productos Editoriales
+          </h2>
+          <div style={{ width: 60, height: 3, background: "#3b82f6", margin: "0 auto 20px", borderRadius: 99 }} />
+        </div>
 
-{/* ─── SECCIÓN DE PAGO ────────────────────────────────────────── */}
-<section style={{
-  padding: isMobile ? "40px 20px" : "60px 40px",
-  maxWidth: 800, margin: "0 auto", position: "relative", zIndex: 1,
-}}>
-  <div style={{ textAlign: "center", marginBottom: 40 }}>
-    <p style={{ color: "#22c55e", letterSpacing: 4, fontSize: 12, textTransform: "uppercase", marginBottom: 12 }}>
-      Realiza tu pago
-    </p>
-    <h2 style={{ fontSize: isMobile ? 24 : 36, fontWeight: 700, marginBottom: 16 }}>
-      ¿Ya realizaste tu pago?
-    </h2>
-    <div style={{ width: 60, height: 3, background: "#22c55e", margin: "0 auto 20px", borderRadius: 99 }} />
-  </div>
+        <div id="catalogo" style={{
+          display: "grid",
+          gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)",
+          gap: 20,
+        }}>
+          <CatalogoProductos />
+        </div>
+      </section>
 
-  <SeccionPago />
-</section>
+      {/* ─── SECCIÓN DE PAGO ────────────────────────────────────────── */}
+      <section style={{
+        padding: isMobile ? "40px 20px" : "60px 40px",
+        maxWidth: 800, margin: "0 auto", position: "relative", zIndex: 1,
+      }}>
+        <div style={{ textAlign: "center", marginBottom: 40 }}>
+          <p style={{ color: "#22c55e", letterSpacing: 4, fontSize: 12, textTransform: "uppercase", marginBottom: 12 }}>
+            Realiza tu pago
+          </p>
+          <h2 style={{ fontSize: isMobile ? 24 : 36, fontWeight: 700, marginBottom: 16 }}>
+            ¿Ya realizaste tu pago?
+          </h2>
+          <div style={{ width: 60, height: 3, background: "#22c55e", margin: "0 auto 20px", borderRadius: 99 }} />
+        </div>
+
+        <SeccionPago />
+      </section>
+
       {/* FOOTER */}
       <footer style={{
         textAlign: "center", padding: "30px 20px",
@@ -262,6 +262,7 @@ function Home() {
     </div>
   );
 }
+
 // ─── Componente de Catálogo de Productos ────────────────────────────────────
 function CatalogoProductos() {
   const [productos, setProductos] = useState<any[]>([]);
@@ -322,11 +323,13 @@ function SeccionPago() {
   const [mensaje, setMensaje] = useState("");
 
   const handleSubirComprobante = async () => {
-    if (!comprobante) return;
+    if (!comprobante || !nombreDeclarado || !monto) return;
     setEnviando(true);
     const formData = new FormData();
     formData.append("comprobante", comprobante);
     formData.append("tipo", "imagen");
+    formData.append("nombreDeclarado", nombreDeclarado);
+    formData.append("monto", monto);
     const res = await fetch(`${import.meta.env.VITE_API_URL}/pagos`, { method: "POST", body: formData });
     if (res.ok) setMensaje("✅ Comprobante enviado. El equipo lo revisará pronto.");
     else setMensaje("❌ Error al enviar. Intenta de nuevo.");
@@ -378,10 +381,12 @@ function SeccionPago() {
 
       {/* Subir comprobante */}
       {modo === "subir" && (
-        <div style={{ background: "#1e293b", padding: 20, borderRadius: 12 }}>
+        <div style={{ background: "#1e293b", padding: 20, borderRadius: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+          <input placeholder="Nombre completo" value={nombreDeclarado} onChange={e => setNombreDeclarado(e.target.value)} style={inputStyle} />
+          <input placeholder="Monto depositado (Bs)" type="number" value={monto} onChange={e => setMonto(e.target.value)} style={inputStyle} />
           <label style={labelStyle}>Sube la foto del comprobante</label>
           <input type="file" accept="image/*" onChange={e => setComprobante(e.target.files?.[0] || null)} style={{ color: "white", marginBottom: 12 }} />
-          <button onClick={handleSubirComprobante} disabled={!comprobante || enviando} style={{ ...btnStyle, background: "#22c55e", opacity: !comprobante ? 0.5 : 1 }}>
+          <button onClick={handleSubirComprobante} disabled={!comprobante || !nombreDeclarado || !monto || enviando} style={{ ...btnStyle, background: "#22c55e", opacity: !comprobante || !nombreDeclarado || !monto ? 0.5 : 1 }}>
             {enviando ? "Enviando..." : "Enviar comprobante"}
           </button>
         </div>
@@ -401,6 +406,8 @@ function SeccionPago() {
     </div>
   );
 }
+
+// ─── Estilos auxiliares ──────────────────────────────────────────────────────
 const btnStyle: React.CSSProperties = {
   border: "none", padding: "12px 20px", borderRadius: 8,
   color: "white", fontWeight: "bold", cursor: "pointer", fontSize: 14,
@@ -417,4 +424,5 @@ const inputStyle: React.CSSProperties = {
   background: "#334155", color: "white", fontSize: 14,
   width: "100%", boxSizing: "border-box",
 };
+
 export default Home;
