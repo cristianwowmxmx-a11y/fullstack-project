@@ -223,9 +223,10 @@ model Pago {
   tipo            String   // "imagen", "declarado", "manual"
   descripcion     String?
   imagenUrl       String?
-  estado          String   @default("pendiente") // "pendiente", "verificado", "rechazado"
+  estado          String   @default("pendiente")
   motivoRechazo   String?
-  productos       String?  // JSON con los productos del carrito
+  productos       String?
+  celular         String?  // ← NUEVO
   creadoEn        DateTime @default(now())
   clienteId       Int?
   cliente         Client?  @relation(fields: [clienteId], references: [id])

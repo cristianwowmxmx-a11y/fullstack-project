@@ -297,7 +297,7 @@ function CatalogoProductos() {
     return sum + precio;
   }, 0);
 
-  const adelanto = total * 0.30; // 30% de adelanto sugerido
+  const adelanto = total * 0.30;
 
   if (loading) return <p style={{ color: "#94a3b8", textAlign: "center", gridColumn: "1/-1" }}>Cargando productos...</p>;
   if (productos.length === 0) return <p style={{ color: "#64748b", textAlign: "center", gridColumn: "1/-1" }}>Próximamente nuevos servicios.</p>;
@@ -388,7 +388,7 @@ function CatalogoProductos() {
       {/* ─── CARRITO FLOTANTE ─────────────────────────────────────── */}
       {carrito.length > 0 && (
         <div style={{
-          position: "fixed", bottom: 20, right: 20, zIndex: 999,
+          position: "fixed", bottom: 20, left: 20, zIndex: 999,
           background: "#1e293b", borderRadius: 16, padding: 16,
           boxShadow: "0 8px 24px rgba(0,0,0,0.6)", minWidth: 260,
           maxWidth: 320,
@@ -438,11 +438,11 @@ function SeccionPago() {
   const [comprobante, setComprobante] = useState<File | null>(null);
   const [nombreDeclarado, setNombreDeclarado] = useState("");
   const [monto, setMonto] = useState("");
+  const [celular, setCelular] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [mensaje, setMensaje] = useState("");
 
-  // Obtener carrito para enviar junto con el pago
   const getCarritoActual = (): any[] => {
     try {
       return JSON.parse(localStorage.getItem("carrito") || "[]");
@@ -450,7 +450,7 @@ function SeccionPago() {
   };
 
   const handleSubirComprobante = async () => {
-    if (!comprobante || !nombreDeclarado || !monto) return;
+    if (!comprobante || !nombreDeclarado || !monto || !celular) return;
     setEnviando(true);
     const carrito = getCarritoActual();
     const formData = new FormData();
@@ -458,17 +458,18 @@ function SeccionPago() {
     formData.append("tipo", "imagen");
     formData.append("nombreDeclarado", nombreDeclarado);
     formData.append("monto", monto);
+    formData.append("celular", celular);
     formData.append("productos", JSON.stringify(carrito.map(p => ({ id: p.id, nombre: p.nombre }))));
     const res = await fetch(`${import.meta.env.VITE_API_URL}/pagos`, { method: "POST", body: formData });
     if (res.ok) {
-      setMensaje("✅ Comprobante enviado. El equipo lo revisará pronto.");
-      localStorage.removeItem("carrito"); // limpiar carrito
+      setMensaje("✅ Enviado correctamente. La asociación se comunicará con usted.");
+      localStorage.removeItem("carrito");
     } else setMensaje("❌ Error al enviar. Intenta de nuevo.");
     setEnviando(false);
   };
 
   const handleDeclararPago = async () => {
-    if (!nombreDeclarado || !monto) return;
+    if (!nombreDeclarado || !monto || !celular) return;
     setEnviando(true);
     const carrito = getCarritoActual();
     const res = await fetch(`${import.meta.env.VITE_API_URL}/pagos`, {
@@ -479,11 +480,12 @@ function SeccionPago() {
         monto: Number(monto),
         tipo: "declarado",
         descripcion,
+        celular,
         productos: JSON.stringify(carrito.map(p => ({ id: p.id, nombre: p.nombre }))),
       }),
     });
     if (res.ok) {
-      setMensaje("✅ Pago declarado. El equipo lo verificará pronto.");
+      setMensaje("✅ Enviado correctamente. La asociación se comunicará con usted.");
       localStorage.removeItem("carrito");
     } else setMensaje("❌ Error al enviar. Intenta de nuevo.");
     setEnviando(false);
@@ -491,10 +493,8 @@ function SeccionPago() {
 
   if (mensaje) return (
     <div style={{ background: "#1e293b", padding: 28, borderRadius: 14, textAlign: "center" }}>
-      <p style={{ color: "white", fontSize: 16, marginBottom: 16 }}>{mensaje}</p>
-      <button onClick={() => { setMensaje(""); setModo(null); }} style={{ ...btnStyle, background: "#334155" }}>
-        Hacer otro envío
-      </button>
+      <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
+      <p style={{ color: "white", fontSize: 16 }}>{mensaje}</p>
     </div>
   );
 
@@ -524,9 +524,10 @@ function SeccionPago() {
         <div style={{ background: "#1e293b", padding: 20, borderRadius: 12, display: "flex", flexDirection: "column", gap: 12 }}>
           <input placeholder="Nombre completo" value={nombreDeclarado} onChange={e => setNombreDeclarado(e.target.value)} style={inputStyle} />
           <input placeholder="Monto depositado (Bs)" type="number" value={monto} onChange={e => setMonto(e.target.value)} style={inputStyle} />
+          <input placeholder="Número de celular" value={celular} onChange={e => setCelular(e.target.value)} style={inputStyle} />
           <label style={labelStyle}>Sube la foto del comprobante</label>
           <input type="file" accept="image/*" onChange={e => setComprobante(e.target.files?.[0] || null)} style={{ color: "white", marginBottom: 12 }} />
-          <button onClick={handleSubirComprobante} disabled={!comprobante || !nombreDeclarado || !monto || enviando} style={{ ...btnStyle, background: "#22c55e", opacity: !comprobante || !nombreDeclarado || !monto ? 0.5 : 1 }}>
+          <button onClick={handleSubirComprobante} disabled={!comprobante || !nombreDeclarado || !monto || !celular || enviando} style={{ ...btnStyle, background: "#22c55e", opacity: !comprobante || !nombreDeclarado || !monto || !celular ? 0.5 : 1 }}>
             {enviando ? "Enviando..." : "Enviar comprobante"}
           </button>
         </div>
@@ -537,8 +538,9 @@ function SeccionPago() {
         <div style={{ background: "#1e293b", padding: 20, borderRadius: 12, display: "flex", flexDirection: "column", gap: 12 }}>
           <input placeholder="Nombre completo" value={nombreDeclarado} onChange={e => setNombreDeclarado(e.target.value)} style={inputStyle} />
           <input placeholder="Monto depositado (Bs)" type="number" value={monto} onChange={e => setMonto(e.target.value)} style={inputStyle} />
+          <input placeholder="Número de celular" value={celular} onChange={e => setCelular(e.target.value)} style={inputStyle} />
           <input placeholder="Descripción (opcional)" value={descripcion} onChange={e => setDescripcion(e.target.value)} style={inputStyle} />
-          <button onClick={handleDeclararPago} disabled={!nombreDeclarado || !monto || enviando} style={{ ...btnStyle, background: "#22c55e", opacity: !nombreDeclarado || !monto ? 0.5 : 1 }}>
+          <button onClick={handleDeclararPago} disabled={!nombreDeclarado || !monto || !celular || enviando} style={{ ...btnStyle, background: "#22c55e", opacity: !nombreDeclarado || !monto || !celular ? 0.5 : 1 }}>
             {enviando ? "Enviando..." : "Declarar pago"}
           </button>
         </div>

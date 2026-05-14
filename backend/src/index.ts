@@ -412,7 +412,7 @@ app.delete("/productos/:id", auth, async (req, res) => {
 
 // ─── PAGOS ────────────────────────────────────────────────────────────────────
 app.post("/pagos", upload.single("comprobante"), async (req: any, res) => {
-  const { nombreDeclarado, monto, tipo, descripcion, productos } = req.body;
+  const { nombreDeclarado, monto, tipo, descripcion, productos, celular } = req.body;
   let imagenUrl: string | undefined;
   if (req.file) {
     imagenUrl = await subirImagen(req.file.buffer, "pagos/comprobantes");
@@ -425,6 +425,7 @@ app.post("/pagos", upload.single("comprobante"), async (req: any, res) => {
       descripcion: descripcion || undefined,
       imagenUrl,
       productos: productos || null,
+      celular: celular || null,
     },
   });
   // Notificar al admin por WhatsApp
