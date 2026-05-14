@@ -13,6 +13,7 @@ interface Pago {
   imagenUrl: string | null;
   estado: string;
   motivoRechazo: string | null;
+  productos: string | null;
   creadoEn: string;
 }
 
@@ -23,6 +24,11 @@ function AdminPagos() {
   const [loading, setLoading] = useState(true);
   const [motivoRechazo, setMotivoRechazo] = useState("");
   const [rechazandoId, setRechazandoId] = useState<number | null>(null);
+
+  // Pago manual
+  const [manualNombre, setManualNombre] = useState("");
+  const [manualMonto, setManualMonto] = useState("");
+  const [agregandoManual, setAgregandoManual] = useState(false);
 
   const headers = {
     "Content-Type": "application/json",
@@ -57,6 +63,20 @@ function AdminPagos() {
     }
   };
 
+  const agregarPagoManual = async () => {
+    if (!manualNombre || !manualMonto) return;
+    setAgregandoManual(true);
+    await fetch(`${API_URL}/pagos/manual`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ nombreDeclarado: manualNombre, monto: Number(manualMonto) }),
+    });
+    setManualNombre("");
+    setManualMonto("");
+    setAgregandoManual(false);
+    await load();
+  };
+
   const getEstadoColor = (estado: string) => {
     if (estado === "verificado") return { bg: "#14532d", color: "#22c55e" };
     if (estado === "rechazado") return { bg: "#7f1d1d", color: "#ef4444" };
@@ -72,6 +92,15 @@ function AdminPagos() {
       <p style={{ color: "#94a3b8", marginBottom: 24, fontSize: isMobile ? 13 : 15 }}>
         Gestiona los pagos de los clientes.
       </p>
+
+      {/* Formulario de pago manual */}
+      <div style={{ background: "#1e293b", padding: 16, borderRadius: 12, marginBottom: 24, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+        <input placeholder="Nombre" value={manualNombre} onChange={e => setManualNombre(e.target.value)} style={{ padding: 8, borderRadius: 6, border: "none", background: "#0f172a", color: "white", fontSize: 13, flex: 1 }} />
+        <input placeholder="Monto" type="number" value={manualMonto} onChange={e => setManualMonto(e.target.value)} style={{ padding: 8, borderRadius: 6, border: "none", background: "#0f172a", color: "white", fontSize: 13, width: 100 }} />
+        <button onClick={agregarPagoManual} disabled={agregandoManual} style={{ ...btnGreen, fontSize: 13, padding: "8px 14px" }}>
+          {agregandoManual ? "..." : "➕ Agregar pago manual"}
+        </button>
+      </div>
 
       {loading ? (
         <p style={{ color: "#94a3b8" }}>Cargando pagos...</p>
@@ -162,7 +191,7 @@ function PagoCard({
               {pago.estado}
             </span>
             <span style={{ fontSize: 11, color: "#64748b" }}>
-              {pago.tipo === "imagen" ? "📷 Comprobante" : "📝 Declarado"}
+              {pago.tipo === "imagen" ? "📷 Comprobante" : pago.tipo === "manual" ? "✍️ Manual" : "📝 Declarado"}
             </span>
             <span style={{ fontSize: 11, color: "#64748b" }}>
               {new Date(pago.creadoEn).toLocaleString()}
@@ -171,26 +200,26 @@ function PagoCard({
           {pago.descripcion && (
             <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 6 }}>📝 {pago.descripcion}</p>
           )}
-          {/* Productos del carrito asociados al pago */}
-{pago.productos && (() => {
-  try {
-    const prods = JSON.parse(pago.productos);
-    if (Array.isArray(prods) && prods.length > 0) {
-      return (
-        <div style={{ marginTop: 6 }}>
-          <p style={{ color: "#64748b", fontSize: 11, marginBottom: 4 }}>Productos solicitados:</p>
-          {prods.map((prod: any, idx: number) => (
-            <span key={idx} style={{ color: "#60a5fa", fontSize: 11, marginRight: 8 }}>📌 {prod.nombre}</span>
-          ))}
-        </div>
-      );
-    }
-  } catch { return null; }
-  return null;
-})()}
           {pago.motivoRechazo && (
             <p style={{ color: "#ef4444", fontSize: 12, marginTop: 6 }}>❌ {pago.motivoRechazo}</p>
           )}
+          {/* Productos del carrito asociados al pago */}
+          {pago.productos && (() => {
+            try {
+              const prods = JSON.parse(pago.productos);
+              if (Array.isArray(prods) && prods.length > 0) {
+                return (
+                  <div style={{ marginTop: 6 }}>
+                    <p style={{ color: "#64748b", fontSize: 11, marginBottom: 4 }}>Productos solicitados:</p>
+                    {prods.map((prod: any, idx: number) => (
+                      <span key={idx} style={{ color: "#60a5fa", fontSize: 11, marginRight: 8 }}>📌 {prod.nombre}</span>
+                    ))}
+                  </div>
+                );
+              }
+            } catch { return null; }
+            return null;
+          })()}
         </div>
 
         {pago.estado === "pendiente" && (

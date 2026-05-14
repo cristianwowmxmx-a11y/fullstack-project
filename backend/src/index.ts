@@ -424,7 +424,7 @@ app.post("/pagos", upload.single("comprobante"), async (req: any, res) => {
       tipo: tipo || (imagenUrl ? "imagen" : "declarado"),
       descripcion: descripcion || undefined,
       imagenUrl,
-      productos: productos || null,  // ← guardar productos
+      productos: productos || null,
     },
   });
   // Notificar al admin por WhatsApp
@@ -436,13 +436,28 @@ app.post("/pagos", upload.single("comprobante"), async (req: any, res) => {
   }
   res.json(pago);
 });
-  // Notificar al admin por WhatsApp
-  try {
-    const { notificarAdminMensaje } = await import("./whatsapp");
-    await notificarAdminMensaje(`Nuevo pago pendiente de ${nombreDeclarado} por Bs ${monto}`);
-  } catch (err) {
-    console.warn("No se pudo notificar al admin:", err);
+
+app.post("/pagos/manual", auth, async (req, res) => {
+  const { nombreDeclarado, monto, pedidoId } = req.body;
+  const pago = await prisma.pago.create({
+    data: {
+      nombreDeclarado,
+      monto: Number(monto),
+      tipo: "manual",
+      estado: "verificado",
+    },
+  });
+
+  if (pedidoId) {
+    const pedido = await prisma.pedido.findUnique({ where: { id: Number(pedidoId) } });
+    if (pedido) {
+      await prisma.pedido.update({
+        where: { id: Number(pedidoId) },
+        data: { montoPagado: pedido.montoPagado + Number(monto) },
+      });
+    }
   }
+
   res.json(pago);
 });
 
@@ -1293,10 +1308,24 @@ app.get("/cliente/archivos", authCliente, async (req: any, res) => {
 
 // ─── PEDIDOS (CLIENTE) ───────────────────────────────────────────────────────
 app.post("/cliente/pedidos", authCliente, async (req: any, res) => {
-  const { items } = req.body; // array de ItemPedido sin pedidoId
+  const { items } = req.body;
+  
+  // Calcular monto total (precio fijo por tipo, ajusta según tu catálogo)
+  const precios: Record<string, number> = {
+    libroA: 1500,
+    libroB: 1200,
+    libroC: 1000,
+    director: 2000,
+    fundador: 800,
+    autor: 500,
+  };
+  const montoTotal = items.reduce((sum: number, item: any) => sum + (precios[item.tipo] || 0), 0);
+
   const pedido = await prisma.pedido.create({
     data: {
       clienteId: req.clienteId,
+      montoTotal,
+      montoPagado: 0,
       items: {
         create: items.map((item: any) => ({
           tipo: item.tipo,
@@ -1320,7 +1349,7 @@ app.post("/cliente/pedidos", authCliente, async (req: any, res) => {
     const { notificarAdminMensaje } = await import("./whatsapp");
     const cliente = await prisma.client.findUnique({ where: { id: req.clienteId } });
     const nombre = cliente?.nombreCompleto || "Cliente";
-    await notificarAdminMensaje(`Nuevo pedido de ${nombre} (${items.length} ítems)`);
+    await notificarAdminMensaje(`Nuevo pedido de ${nombre} (${items.length} ítems) por Bs ${montoTotal}`);
   } catch (err) {
     console.warn("No se pudo notificar:", err);
   }

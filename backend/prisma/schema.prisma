@@ -220,21 +220,24 @@ model Pago {
   id              Int      @id @default(autoincrement())
   nombreDeclarado String
   monto           Float
-  tipo            String   // "imagen" o "declarado"
+  tipo            String   // "imagen", "declarado", "manual"
   descripcion     String?
   imagenUrl       String?
-  estado          String   @default("pendiente")
+  estado          String   @default("pendiente") // "pendiente", "verificado", "rechazado"
   motivoRechazo   String?
-  productos       String?  // ← NUEVO: JSON con los IDs y nombres de productos del carrito
+  productos       String?  // JSON con los productos del carrito
   creadoEn        DateTime @default(now())
   clienteId       Int?
   cliente         Client?  @relation(fields: [clienteId], references: [id])
 }
+
 model Pedido {
   id            Int          @id @default(autoincrement())
   clienteId     Int
   estado        String       @default("en proceso") // "en proceso", "completado", "rechazado"
   motivoRechazo String?
+  montoTotal    Float        @default(0)
+  montoPagado   Float        @default(0)
   creadoEn      DateTime     @default(now())
   cliente       Client       @relation(fields: [clienteId], references: [id])
   items         ItemPedido[]

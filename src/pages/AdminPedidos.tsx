@@ -34,6 +34,8 @@ interface Pedido {
   cliente: { id: number; nombreCompleto: string | null; nombres: string | null; apellidoPaterno: string | null };
   estado: string;
   motivoRechazo: string | null;
+  montoTotal: number;
+  montoPagado: number;
   creadoEn: string;
   items: ItemPedido[];
 }
@@ -47,7 +49,7 @@ function AdminPedidos() {
   const [motivoRechazo, setMotivoRechazo] = useState("");
   const [rechazandoId, setRechazandoId] = useState<number | null>(null);
 
-  // Nuevos estados para subir avances
+  // Estados para subir avances
   const [notaAvance, setNotaAvance] = useState<Record<number, string>>({});
   const [archivosAvance, setArchivosAvance] = useState<Record<number, File[]>>({});
   const [subiendoAvance, setSubiendoAvance] = useState<number | null>(null);
@@ -170,6 +172,25 @@ function AdminPedidos() {
               <p style={{ color: "#fca5a5", fontSize: 13 }}>❌ {selected.motivoRechazo}</p>
             </div>
           )}
+
+          {/* Barra de progreso de pago */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+              <span style={{ color: "#94a3b8", fontSize: 12 }}>Progreso de pago</span>
+              <span style={{ color: "white", fontSize: 12, fontWeight: "bold" }}>
+                Bs {selected.montoPagado?.toFixed(2) || "0.00"} / Bs {selected.montoTotal?.toFixed(2) || "0.00"}
+              </span>
+            </div>
+            <div style={{ background: "#334155", borderRadius: 99, height: 10, overflow: "hidden" }}>
+              <div style={{
+                width: `${selected.montoTotal > 0 ? Math.round((selected.montoPagado / selected.montoTotal) * 100) : 0}%`,
+                height: "100%", background: "#22c55e", borderRadius: 99, transition: "width 0.4s ease",
+              }} />
+            </div>
+            <p style={{ color: "#64748b", fontSize: 11, marginTop: 4 }}>
+              {selected.montoTotal > 0 ? Math.round((selected.montoPagado / selected.montoTotal) * 100) : 0}% completado
+            </p>
+          </div>
 
           {selected.estado === "en proceso" && (
             <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>

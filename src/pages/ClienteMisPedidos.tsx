@@ -33,6 +33,8 @@ interface Pedido {
   id: number;
   estado: string;
   motivoRechazo: string | null;
+  montoTotal: number;
+  montoPagado: number;
   creadoEn: string;
   items: ItemPedido[];
 }
@@ -127,6 +129,25 @@ function ClienteMisPedidos() {
               <p style={{ color: "#fca5a5", fontSize: 13 }}>❌ {selected.motivoRechazo}</p>
             </div>
           )}
+
+          {/* Barra de progreso de pago */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+              <span style={{ color: "#94a3b8", fontSize: 12 }}>Progreso de pago</span>
+              <span style={{ color: "white", fontSize: 12, fontWeight: "bold" }}>
+                Bs {selected.montoPagado?.toFixed(2) || "0.00"} / Bs {selected.montoTotal?.toFixed(2) || "0.00"}
+              </span>
+            </div>
+            <div style={{ background: "#334155", borderRadius: 99, height: 10, overflow: "hidden" }}>
+              <div style={{
+                width: `${selected.montoTotal > 0 ? Math.round((selected.montoPagado / selected.montoTotal) * 100) : 0}%`,
+                height: "100%", background: "#22c55e", borderRadius: 99, transition: "width 0.4s ease",
+              }} />
+            </div>
+            <p style={{ color: "#64748b", fontSize: 11, marginTop: 4 }}>
+              {selected.montoTotal > 0 ? Math.round((selected.montoPagado / selected.montoTotal) * 100) : 0}% completado
+            </p>
+          </div>
 
           <h3 style={{ marginBottom: 16, color: "#94a3b8", fontSize: 13, textTransform: "uppercase" }}>Ítems del pedido</h3>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -252,6 +273,6 @@ function ClienteMisPedidos() {
 
 const btnBlue: React.CSSProperties = { background: "#3b82f6", border: "none", padding: "8px 14px", borderRadius: 8, color: "white", fontWeight: "bold", cursor: "pointer", fontSize: 13 };
 const btnGray: React.CSSProperties = { background: "#334155", border: "none", padding: "8px 14px", borderRadius: 8, color: "white", fontWeight: "bold", cursor: "pointer", fontSize: 13 };
-const badgeStyle: React.CSSProperties = { background: "#1e3a5f", color: "#60a5fa", padding: "2px 10px", borderRadius: 99, fontSize: 11, fontWeight: "bold", display: "inline-block", marginRight: 6, marginTop: 6 };
+const badgeStyle: React.CSSProperties = { background: "#1e3a5f", color: "#60a5fa", padding: "2px 10px", borderRadius: 99, fontSize: 11, fontWeight: "bold" };
 
 export default ClienteMisPedidos;
