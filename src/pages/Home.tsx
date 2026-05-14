@@ -183,7 +183,48 @@ function Home() {
           ))}
         </div>
       </section>
+{/* ─── CATÁLOGO DE PRODUCTOS ─────────────────────────────────── */}
+<section style={{
+  padding: isMobile ? "40px 20px" : "60px 40px",
+  maxWidth: 1100, margin: "0 auto", position: "relative", zIndex: 1,
+}}>
+  <div style={{ textAlign: "center", marginBottom: 40 }}>
+    <p style={{ color: "#3b82f6", letterSpacing: 4, fontSize: 12, textTransform: "uppercase", marginBottom: 12 }}>
+      Catálogo de Servicios
+    </p>
+    <h2 style={{ fontSize: isMobile ? 24 : 36, fontWeight: 700, marginBottom: 16 }}>
+      Nuestros Productos Editoriales
+    </h2>
+    <div style={{ width: 60, height: 3, background: "#3b82f6", margin: "0 auto 20px", borderRadius: 99 }} />
+  </div>
 
+  <div id="catalogo" style={{
+    display: "grid",
+    gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)",
+    gap: 20,
+  }}>
+    {/* Las tarjetas se cargan dinámicamente desde /productos */}
+    <CatalogoProductos />
+  </div>
+</section>
+
+{/* ─── SECCIÓN DE PAGO ────────────────────────────────────────── */}
+<section style={{
+  padding: isMobile ? "40px 20px" : "60px 40px",
+  maxWidth: 800, margin: "0 auto", position: "relative", zIndex: 1,
+}}>
+  <div style={{ textAlign: "center", marginBottom: 40 }}>
+    <p style={{ color: "#22c55e", letterSpacing: 4, fontSize: 12, textTransform: "uppercase", marginBottom: 12 }}>
+      Realiza tu pago
+    </p>
+    <h2 style={{ fontSize: isMobile ? 24 : 36, fontWeight: 700, marginBottom: 16 }}>
+      ¿Ya realizaste tu pago?
+    </h2>
+    <div style={{ width: 60, height: 3, background: "#22c55e", margin: "0 auto 20px", borderRadius: 99 }} />
+  </div>
+
+  <SeccionPago />
+</section>
       {/* FOOTER */}
       <footer style={{
         textAlign: "center", padding: "30px 20px",
@@ -221,5 +262,159 @@ function Home() {
     </div>
   );
 }
+// ─── Componente de Catálogo de Productos ────────────────────────────────────
+function CatalogoProductos() {
+  const [productos, setProductos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    fetch(`${import.meta.env.VITE_API_URL}/productos`)
+      .then(r => r.json())
+      .then(data => { setProductos(data); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  if (loading) return <p style={{ color: "#94a3b8", textAlign: "center", gridColumn: "1/-1" }}>Cargando productos...</p>;
+  if (productos.length === 0) return <p style={{ color: "#64748b", textAlign: "center", gridColumn: "1/-1" }}>Próximamente nuevos servicios.</p>;
+
+  return (
+    <>
+      {productos.map((p: any) => {
+        const precioFinal = p.descuento > 0 ? p.precio - (p.precio * p.descuento / 100) : p.precio;
+        return (
+          <div key={p.id} style={{
+            background: "#111", padding: 24, borderRadius: 14,
+            border: "1px solid #222", transition: "all 0.3s ease",
+            display: "flex", flexDirection: "column", gap: 12,
+          }}>
+            <h3 style={{ color: "#3b82f6", fontSize: 18, fontWeight: 700 }}>{p.nombre}</h3>
+            <p style={{ color: "#888", fontSize: 13, lineHeight: 1.6, flex: 1 }}>{p.descripcion}</p>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+              {p.descuento > 0 && (
+                <span style={{ color: "#ef4444", fontSize: 16, textDecoration: "line-through" }}>
+                  Bs {p.precio.toFixed(2)}
+                </span>
+              )}
+              <span style={{ color: "#22c55e", fontSize: 22, fontWeight: "bold" }}>
+                Bs {precioFinal.toFixed(2)}
+              </span>
+              {p.descuento > 0 && (
+                <span style={{ background: "#ef4444", color: "white", padding: "2px 10px", borderRadius: 99, fontSize: 12, fontWeight: "bold" }}>
+                  -{p.descuento}%
+                </span>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+// ─── Componente de Sección de Pago ──────────────────────────────────────────
+function SeccionPago() {
+  const [modo, setModo] = useState<"qr" | "subir" | "declarar" | null>(null);
+  const [comprobante, setComprobante] = useState<File | null>(null);
+  const [nombreDeclarado, setNombreDeclarado] = useState("");
+  const [monto, setMonto] = useState("");
+  const [descripcion, setDescripcion] = useState("");
+  const [enviando, setEnviando] = useState(false);
+  const [mensaje, setMensaje] = useState("");
+
+  const handleSubirComprobante = async () => {
+    if (!comprobante) return;
+    setEnviando(true);
+    const formData = new FormData();
+    formData.append("comprobante", comprobante);
+    formData.append("tipo", "imagen");
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/pagos`, { method: "POST", body: formData });
+    if (res.ok) setMensaje("✅ Comprobante enviado. El equipo lo revisará pronto.");
+    else setMensaje("❌ Error al enviar. Intenta de nuevo.");
+    setEnviando(false);
+  };
+
+  const handleDeclararPago = async () => {
+    if (!nombreDeclarado || !monto) return;
+    setEnviando(true);
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/pagos`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nombreDeclarado, monto: Number(monto), tipo: "declarado", descripcion }),
+    });
+    if (res.ok) setMensaje("✅ Pago declarado. El equipo lo verificará pronto.");
+    else setMensaje("❌ Error al enviar. Intenta de nuevo.");
+    setEnviando(false);
+  };
+
+  if (mensaje) return (
+    <div style={{ background: "#1e293b", padding: 28, borderRadius: 14, textAlign: "center" }}>
+      <p style={{ color: "white", fontSize: 16, marginBottom: 16 }}>{mensaje}</p>
+      <button onClick={() => { setMensaje(""); setModo(null); }} style={{ ...btnStyle, background: "#334155" }}>
+        Hacer otro envío
+      </button>
+    </div>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* QR y datos bancarios */}
+      <div style={{ background: "#1e293b", padding: 24, borderRadius: 14, textAlign: "center" }}>
+        <p style={{ color: "white", fontWeight: "bold", marginBottom: 16 }}>Datos para el pago</p>
+        <div style={{ width: 150, height: 150, background: "#334155", margin: "0 auto 16px", borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 64 }}>📱</div>
+        <p style={{ color: "#94a3b8", fontSize: 13 }}>Banco: Banco Unión</p>
+        <p style={{ color: "#94a3b8", fontSize: 13 }}>Cuenta: 123456789</p>
+        <p style={{ color: "#94a3b8", fontSize: 13 }}>Titular: Asociación de Escritores Vanguardistas 3.0</p>
+      </div>
+
+      {/* Botones de acción */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <button onClick={() => setModo("subir")} style={{ ...btnStyle, background: modo === "subir" ? "#3b82f6" : "#334155" }}>
+          📤 Subir comprobante
+        </button>
+        <button onClick={() => setModo("declarar")} style={{ ...btnStyle, background: modo === "declarar" ? "#3b82f6" : "#334155" }}>
+          📝 Declarar pago
+        </button>
+      </div>
+
+      {/* Subir comprobante */}
+      {modo === "subir" && (
+        <div style={{ background: "#1e293b", padding: 20, borderRadius: 12 }}>
+          <label style={labelStyle}>Sube la foto del comprobante</label>
+          <input type="file" accept="image/*" onChange={e => setComprobante(e.target.files?.[0] || null)} style={{ color: "white", marginBottom: 12 }} />
+          <button onClick={handleSubirComprobante} disabled={!comprobante || enviando} style={{ ...btnStyle, background: "#22c55e", opacity: !comprobante ? 0.5 : 1 }}>
+            {enviando ? "Enviando..." : "Enviar comprobante"}
+          </button>
+        </div>
+      )}
+
+      {/* Declarar pago */}
+      {modo === "declarar" && (
+        <div style={{ background: "#1e293b", padding: 20, borderRadius: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+          <input placeholder="Nombre completo" value={nombreDeclarado} onChange={e => setNombreDeclarado(e.target.value)} style={inputStyle} />
+          <input placeholder="Monto depositado (Bs)" type="number" value={monto} onChange={e => setMonto(e.target.value)} style={inputStyle} />
+          <input placeholder="Descripción (opcional)" value={descripcion} onChange={e => setDescripcion(e.target.value)} style={inputStyle} />
+          <button onClick={handleDeclararPago} disabled={!nombreDeclarado || !monto || enviando} style={{ ...btnStyle, background: "#22c55e", opacity: !nombreDeclarado || !monto ? 0.5 : 1 }}>
+            {enviando ? "Enviando..." : "Declarar pago"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+const btnStyle: React.CSSProperties = {
+  border: "none", padding: "12px 20px", borderRadius: 8,
+  color: "white", fontWeight: "bold", cursor: "pointer", fontSize: 14,
+  width: "100%",
+};
+
+const labelStyle: React.CSSProperties = {
+  display: "block", color: "#94a3b8", fontSize: 12,
+  marginBottom: 8, fontWeight: "bold", textTransform: "uppercase", letterSpacing: 0.5,
+};
+
+const inputStyle: React.CSSProperties = {
+  padding: 10, borderRadius: 8, border: "none",
+  background: "#334155", color: "white", fontSize: 14,
+  width: "100%", boxSizing: "border-box",
+};
 export default Home;

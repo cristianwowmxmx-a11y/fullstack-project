@@ -9,7 +9,8 @@ import ClienteDatos from "./ClienteDatos";
 import ClienteContenido from "./ClienteContenido";
 import ClienteMensajes from "./ClienteMensajes";
 import ClientePassword from "./ClientePassword";
-
+import ClienteHacerPedido from "./ClienteHacerPedido";
+import ClienteMisPedidos from "./ClienteMisPedidos";
 const API_URL = import.meta.env.VITE_API_URL;
 
 function ClientePanel() {
@@ -33,6 +34,8 @@ function ClientePanel() {
     { key: "contenido",  label: "📁 Mi Contenido" },
     { key: "mensajes",   label: "💬 Mensajes" },
     { key: "password",   label: "🔑 Cambiar Contraseña" },
+    { key: "hacerpedido", label: "🛒 Hacer Pedido" },
+    { key: "mispedidos", label: "📦 Mis Pedidos" },
   ];
 
   const handleSection = (key: string) => {
@@ -141,6 +144,8 @@ function ClientePanel() {
         {section === "contenido" && <ClienteContenido />}
         {section === "mensajes" && <ClienteMensajes />}
         {section === "password" && <ClientePassword />}
+        {section === "hacerpedido" && <ClienteHacerPedido />}
+        {section === "mispedidos" && <ClienteMisPedidos />}
       </div>
     </div>
   );

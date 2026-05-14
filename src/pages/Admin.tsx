@@ -10,6 +10,9 @@ import Clients from "./Clients";
 import Entregas from "./Entregas";
 import GlobalSearch from "../components/GlobalSearch";
 import AdminMensajes from "./AdminMensajes";
+import AdminPagos from "./AdminPagos";
+import AdminProductos from "./AdminProductos";
+import AdminPedidos from "./AdminPedidos";
 
 import.meta.env.VITE_API_URL
 
@@ -62,6 +65,9 @@ function Admin() {
     { key: "entregas", label: "📦 Entregas" },
     { key: "search", label: "🔍 Buscador" },
     { key: "mensajes", label: "💬 Mensajes" },
+    { key: "pagos", label: "💰 Pagos" },
+    { key: "productos", label: "🛒 Productos" },
+    { key: "pedidos", label: "📦 Pedidos" },
   ];
 
   const handleSection = (key: string) => { setSection(key); setSidebarOpen(false); };
@@ -375,6 +381,9 @@ const res = await fetch(`${import.meta.env.VITE_API_URL}/stats`, {
         {section === "entregas" && <Entregas />}
         {section === "search" && <GlobalSearch />}
         {section === "mensajes" && <AdminMensajes />}
+        {section === "pagos" && <AdminPagos />}
+        {section === "productos" && <AdminProductos />}
+        {section === "pedidos" && <AdminPedidos />}
       </div>
     </div>
   );

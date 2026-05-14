@@ -367,6 +367,112 @@ app.delete("/projects/:id", auth, async (req, res) => {
   res.json({ ok: true });
 });
 
+// ─── CATÁLOGO DE PRODUCTOS ──────────────────────────────────────────────────
+app.get("/productos", async (req, res) => {
+  res.json(await prisma.producto.findMany({ where: { activo: true } }));
+});
+
+app.get("/productos/admin", auth, async (req, res) => {
+  res.json(await prisma.producto.findMany({ orderBy: { creadoEn: "desc" } }));
+});
+
+app.post("/productos", auth, async (req, res) => {
+  const { nombre, descripcion, precio, descuento } = req.body;
+  res.json(await prisma.producto.create({
+    data: { nombre, descripcion, precio, descuento: descuento || 0 },
+  }));
+});
+
+app.put("/productos/:id", auth, async (req, res) => {
+  const id = Number(req.params.id);
+  const { nombre, descripcion, precio, descuento, activo } = req.body;
+  res.json(await prisma.producto.update({
+    where: { id },
+    data: {
+      ...(nombre !== undefined && { nombre }),
+      ...(descripcion !== undefined && { descripcion }),
+      ...(precio !== undefined && { precio }),
+      ...(descuento !== undefined && { descuento }),
+      ...(activo !== undefined && { activo }),
+    },
+  }));
+});
+
+app.delete("/productos/:id", auth, async (req, res) => {
+  await prisma.producto.delete({ where: { id: Number(req.params.id) } });
+  res.json({ ok: true });
+});
+
+// ─── PAGOS ────────────────────────────────────────────────────────────────────
+app.post("/pagos", upload.single("comprobante"), async (req: any, res) => {
+  const { nombreDeclarado, monto, tipo, descripcion } = req.body;
+  let imagenUrl: string | undefined;
+  if (req.file) {
+    imagenUrl = await subirImagen(req.file.buffer, "pagos/comprobantes");
+  }
+  const pago = await prisma.pago.create({
+    data: {
+      nombreDeclarado,
+      monto: Number(monto),
+      tipo: tipo || (imagenUrl ? "imagen" : "declarado"),
+      descripcion: descripcion || undefined,
+      imagenUrl,
+    },
+  });
+  // Notificar al admin por WhatsApp
+  try {
+    const { notificarAdminMensaje } = await import("./whatsapp");
+    await notificarAdminMensaje(`Nuevo pago pendiente de ${nombreDeclarado} por Bs ${monto}`);
+  } catch (err) {
+    console.warn("No se pudo notificar al admin:", err);
+  }
+  res.json(pago);
+});
+
+app.get("/pagos", auth, async (req, res) => {
+  res.json(await prisma.pago.findMany({ orderBy: { creadoEn: "desc" } }));
+});
+
+app.put("/pagos/:id/verificar", auth, async (req, res) => {
+  const id = Number(req.params.id);
+  const pago = await prisma.pago.update({
+    where: { id },
+    data: { estado: "verificado" },
+  });
+
+  // Crear cliente si no existe y generar link de formulario
+  if (!pago.clienteId) {
+    const token = Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 4);
+    const cliente = await prisma.client.create({
+      data: { token, expiresAt, nombreCompleto: pago.nombreDeclarado },
+    });
+    await prisma.pago.update({ where: { id }, data: { clienteId: cliente.id } });
+
+    // Enviar link al cliente
+    const LINK_PORTAL = process.env.CLIENT_PORTAL_URL || "https://tudominio.com";
+    const linkFormulario = `${LINK_PORTAL}/formulario/${token}`;
+    try {
+      const { notificarAdminMensaje } = await import("./whatsapp");
+      await notificarAdminMensaje(`Pago verificado para ${pago.nombreDeclarado}. Link del formulario: ${linkFormulario}`);
+    } catch (err) {
+      console.warn("No se pudo notificar:", err);
+    }
+  }
+
+  res.json(pago);
+});
+
+app.put("/pagos/:id/rechazar", auth, async (req, res) => {
+  const id = Number(req.params.id);
+  const { motivoRechazo } = req.body;
+  res.json(await prisma.pago.update({
+    where: { id },
+    data: { estado: "rechazado", motivoRechazo },
+  }));
+});
+
 // ─── CLIENTS ──────────────────────────────────────────────────────────────────
 app.get("/clients", auth, async (req, res) => {
   res.json(await prisma.client.findMany({ orderBy: { createdAt: "desc" } }));
@@ -417,7 +523,7 @@ app.post(
     if (files?.fotoCarnet?.[0]) {
       data.fotoCarnet = await subirImagen(files.fotoCarnet[0].buffer, "clientes/carnets");
     }
-     if (files?.fotoCarnet2?.[0]) {    // ← Agregar este bloque
+     if (files?.fotoCarnet2?.[0]) {
       data.fotoCarnet2 = await subirImagen(files.fotoCarnet2[0].buffer, "clientes/carnets");
     }
 
@@ -429,7 +535,7 @@ app.post(
   }
 );
 
-// ─── ACTUALIZACIÓN DEL FORMULARIO DEL CLIENTE (CORREGIDA) ────────────────────
+// ─── ACTUALIZACIÓN DEL FORMULARIO DEL CLIENTE ────────────────────────────────
 app.put("/clients/form/:token", async (req, res) => {
   const client = await prisma.client.findUnique({ where: { token: req.params.token } });
   if (!client) return res.status(404).json({ error: "Link no válido" });
@@ -632,8 +738,8 @@ app.delete("/clients/:id", auth, async (req, res) => {
     data: { clienteId: null },
   });
 
-  // 2. Elimina dependencias directas (¡agregamos Mensaje aquí!)
-  await prisma.mensaje.deleteMany({ where: { clienteId: id } });  // ← NUEVA LÍNEA
+  // 2. Elimina dependencias directas
+  await prisma.mensaje.deleteMany({ where: { clienteId: id } });
   await prisma.libroDetalle.deleteMany({ where: { clienteId: id } });
   await prisma.clienteTask.deleteMany({ where: { clienteId: id } });
   await prisma.entrega.deleteMany({ where: { clienteId: id } });
@@ -643,6 +749,7 @@ app.delete("/clients/:id", auth, async (req, res) => {
 
   res.json({ ok: true });
 });
+
 // ─── CREDENCIALES ─────────────────────────────────────────────────────────────
 app.get("/clients/:id/credenciales", auth, async (req, res) => {
   const id = Number(req.params.id);
@@ -731,6 +838,90 @@ app.post("/clients/:id/regenerar-credenciales", auth, async (req, res) => {
   }, 5000); // 5 segundos para prueba (después cambiar a 10 * 60 * 1000)
 
   res.json({ clientUsername: username, clientPassword: password });
+});
+
+// ─── PEDIDOS (ADMIN) ─────────────────────────────────────────────────────────
+app.get("/pedidos", auth, async (req, res) => {
+  const pedidos = await prisma.pedido.findMany({
+    include: { cliente: true, items: true },
+    orderBy: { creadoEn: "desc" },
+  });
+  res.json(pedidos);
+});
+
+app.get("/pedidos/:id", auth, async (req, res) => {
+  const pedido = await prisma.pedido.findUnique({
+    where: { id: Number(req.params.id) },
+    include: { cliente: true, items: { include: { revisiones: { orderBy: { creadoEn: "asc" } } } } },
+  });
+  if (!pedido) return res.status(404).json({ error: "Pedido no encontrado" });
+  res.json(pedido);
+});
+
+app.put("/pedidos/:id/rechazar", auth, async (req, res) => {
+  const id = Number(req.params.id);
+  const { motivoRechazo } = req.body;
+  res.json(await prisma.pedido.update({
+    where: { id },
+    data: { estado: "rechazado", motivoRechazo },
+  }));
+});
+
+app.put("/pedidos/:id/completar", auth, async (req, res) => {
+  const id = Number(req.params.id);
+  res.json(await prisma.pedido.update({
+    where: { id },
+    data: { estado: "completado" },
+  }));
+});
+
+// ─── REVISIONES (ADMIN) ──────────────────────────────────────────────────────
+app.post("/items/:id/revision", auth, upload.array("archivos", 5), async (req: any, res) => {
+  const itemId = Number(req.params.id);
+  const { nota } = req.body;
+  const archivos: string[] = [];
+  if (req.files) {
+    for (const file of req.files) {
+      const url = await subirImagen(file.buffer, "revisiones", "auto", file.originalname.split(".").pop());
+      archivos.push(url);
+    }
+  }
+  // Determinar última ronda
+  const ultimaRevision = await prisma.revisionItem.findFirst({
+    where: { itemPedidoId: itemId },
+    orderBy: { ronda: "desc" },
+  });
+  const nuevaRonda = (ultimaRevision?.ronda || 0) + 1;
+
+  const revision = await prisma.revisionItem.create({
+    data: {
+      itemPedidoId: itemId,
+      ronda: nuevaRonda,
+      autorTipo: "admin",
+      nota: nota || null,
+      archivos,
+    },
+  });
+  // Notificar al cliente
+  try {
+    const item = await prisma.itemPedido.findUnique({
+      where: { id: itemId },
+      include: { pedido: { include: { cliente: true } } },
+    });
+    if (item?.pedido?.cliente) {
+      const { enviarWhatsAppCliente } = await import("./whatsapp");
+      await enviarWhatsAppCliente(
+        item.pedido.cliente.celular || "",
+        item.pedido.cliente.nombreCompleto || "Cliente",
+        "Nuevo avance disponible",
+        "Revisa tu pedido",
+        process.env.CLIENT_PORTAL_URL || ""
+      );
+    }
+  } catch (err) {
+    console.warn("No se pudo notificar:", err);
+  }
+  res.json(revision);
 });
 
 // ─── MENSAJES ─────────────────────────────────────────────────────────────────
@@ -918,37 +1109,6 @@ app.post("/cliente/mensajes", authCliente, async (req: any, res) => {
 
   res.json(mensaje);
 });
-app.post("/cliente/mensajes", authCliente, async (req: any, res) => {
-  const { texto } = req.body;
-  if (!texto || !texto.trim())
-    return res.status(400).json({ error: "El mensaje no puede estar vacío" });
-
-  const mensaje = await prisma.mensaje.create({
-    data: {
-      clienteId: req.clienteId,
-      emisor: "cliente",
-      texto,
-      leido: false,
-    },
-  });
-
-  try {
-    const { notificarAdminMensaje } = await import("./whatsapp");
-    const cliente = await prisma.client.findUnique({
-      where: { id: req.clienteId },
-      select: { nombreCompleto: true, nombres: true, apellidoPaterno: true },
-    });
-    const nombre =
-      cliente?.nombreCompleto ||
-      [cliente?.nombres, cliente?.apellidoPaterno].filter(Boolean).join(" ") ||
-      "Cliente";
-    await notificarAdminMensaje(nombre);
-  } catch (err) {
-    console.warn("No se pudo notificar por WhatsApp:", err);
-  }
-
-  res.json(mensaje);
-});
 
 app.put("/cliente/password", authCliente, async (req: any, res) => {
   const { passwordActual, passwordNueva } = req.body;
@@ -1102,6 +1262,102 @@ app.get("/cliente/archivos", authCliente, async (req: any, res) => {
     orderBy: { createdAt: "desc" },
   });
   res.json(archivos);
+});
+
+// ─── PEDIDOS (CLIENTE) ───────────────────────────────────────────────────────
+app.post("/cliente/pedidos", authCliente, async (req: any, res) => {
+  const { items } = req.body; // array de ItemPedido sin pedidoId
+  const pedido = await prisma.pedido.create({
+    data: {
+      clienteId: req.clienteId,
+      items: {
+        create: items.map((item: any) => ({
+          tipo: item.tipo,
+          titulo: item.titulo || null,
+          conSenapi: item.conSenapi || false,
+          conIsbn: item.conIsbn || false,
+          periodicidad: item.periodicidad || null,
+          tipoAutor: item.tipoAutor || null,
+          asociacionEncargaTitulo: item.asociacionEncargaTitulo || false,
+          notas: item.notas || null,
+          archivoWord: item.archivoWord || null,
+          archivoPdf: item.archivoPdf || null,
+        })),
+      },
+    },
+    include: { items: true },
+  });
+
+  // Notificar al admin
+  try {
+    const { notificarAdminMensaje } = await import("./whatsapp");
+    const cliente = await prisma.client.findUnique({ where: { id: req.clienteId } });
+    const nombre = cliente?.nombreCompleto || "Cliente";
+    await notificarAdminMensaje(`Nuevo pedido de ${nombre} (${items.length} ítems)`);
+  } catch (err) {
+    console.warn("No se pudo notificar:", err);
+  }
+
+  res.json(pedido);
+});
+
+app.get("/cliente/pedidos", authCliente, async (req: any, res) => {
+  const pedidos = await prisma.pedido.findMany({
+    where: { clienteId: req.clienteId },
+    include: { items: { include: { revisiones: true } } },
+    orderBy: { creadoEn: "desc" },
+  });
+  res.json(pedidos);
+});
+
+app.get("/cliente/pedidos/:id", authCliente, async (req: any, res) => {
+  const pedido = await prisma.pedido.findFirst({
+    where: { id: Number(req.params.id), clienteId: req.clienteId },
+    include: { items: { include: { revisiones: { orderBy: { creadoEn: "asc" } } } } },
+  });
+  if (!pedido) return res.status(404).json({ error: "Pedido no encontrado" });
+  res.json(pedido);
+});
+
+// ─── REVISIONES (CLIENTE) ────────────────────────────────────────────────────
+app.post("/cliente/items/:id/revision", authCliente, upload.array("archivos", 5), async (req: any, res) => {
+  const itemId = Number(req.params.id);
+  const { nota } = req.body;
+  if (!nota) return res.status(400).json({ error: "Debes escribir una observación" });
+  const archivos: string[] = [];
+  if (req.files) {
+    for (const file of req.files) {
+      const url = await subirImagen(file.buffer, "revisiones", "auto", file.originalname.split(".").pop());
+      archivos.push(url);
+    }
+  }
+  const ultimaRevision = await prisma.revisionItem.findFirst({
+    where: { itemPedidoId: itemId },
+    orderBy: { ronda: "desc" },
+  });
+  const nuevaRonda = (ultimaRevision?.ronda || 0) + 1;
+
+  const revision = await prisma.revisionItem.create({
+    data: {
+      itemPedidoId: itemId,
+      ronda: nuevaRonda,
+      autorTipo: "cliente",
+      nota,
+      archivos,
+    },
+  });
+  // Notificar al admin
+  try {
+    const { notificarAdminMensaje } = await import("./whatsapp");
+    const item = await prisma.itemPedido.findUnique({
+      where: { id: itemId },
+      include: { pedido: { include: { cliente: true } } },
+    });
+    await notificarAdminMensaje(`El cliente ${item?.pedido?.cliente?.nombreCompleto || "Cliente"} envió observaciones en un ítem`);
+  } catch (err) {
+    console.warn("No se pudo notificar:", err);
+  }
+  res.json(revision);
 });
 
 // ─── ENTREGAS ─────────────────────────────────────────────────────────────────

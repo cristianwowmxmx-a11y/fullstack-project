@@ -7,6 +7,8 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─── MODELOS EXISTENTES (resumidos) ──────────────────────────────────────────
+
 model User {
   id       Int       @id @default(autoincrement())
   username String    @unique
@@ -116,7 +118,7 @@ model Client {
   email             String?
   fotografia        String?
   fotoCarnet        String?
-fotoCarnet2   String? 
+  fotoCarnet2       String?
 
   pideLibros        Boolean       @default(false)
   cantLibros        Int           @default(0)
@@ -140,6 +142,10 @@ fotoCarnet2   String?
   libroDetalles     LibroDetalle[]
   mensajes          Mensaje[]
   archivos          ClienteArchivo[]
+
+  // ─── NUEVAS RELACIONES ────────────────────────────────────────────────────
+  pagos             Pago[]
+  pedidos           Pedido[]
 }
 
 model Entrega {
@@ -195,4 +201,69 @@ model ClienteArchivo {
   archivoUrl  String?
   createdAt   DateTime @default(now())
   cliente     Client   @relation(fields: [clienteId], references: [id])
+}
+
+// ─── NUEVOS MODELOS ──────────────────────────────────────────────────────────
+
+model Producto {
+  id          Int      @id @default(autoincrement())
+  nombre      String
+  descripcion String
+  precio      Float
+  descuento   Float    @default(0)
+  activo      Boolean  @default(true)
+  creadoEn    DateTime @default(now())
+}
+
+model Pago {
+  id              Int      @id @default(autoincrement())
+  nombreDeclarado String
+  monto           Float
+  tipo            String   // "imagen" o "declarado"
+  descripcion     String?
+  imagenUrl       String?  // comprobante
+  estado          String   @default("pendiente") // "pendiente", "verificado", "rechazado"
+  motivoRechazo   String?
+  creadoEn        DateTime @default(now())
+  clienteId       Int?     // se asigna cuando se verifica y se crea el cliente
+  cliente         Client?  @relation(fields: [clienteId], references: [id])
+}
+
+model Pedido {
+  id            Int          @id @default(autoincrement())
+  clienteId     Int
+  estado        String       @default("en proceso") // "en proceso", "completado", "rechazado"
+  motivoRechazo String?
+  creadoEn      DateTime     @default(now())
+  cliente       Client       @relation(fields: [clienteId], references: [id])
+  items         ItemPedido[]
+}
+
+model ItemPedido {
+  id                     Int             @id @default(autoincrement())
+  pedidoId               Int
+  tipo                   String          // "libroA", "libroB", "libroC", "director", "fundador", "autor"
+  titulo                 String?         // título del libro/revista/artículo
+  conSenapi              Boolean         @default(false)
+  conIsbn                Boolean         @default(false)
+  periodicidad           String?         // solo director: "3 meses", "1 mes", etc.
+  tipoAutor              String?         // solo autor: "soloTitulo" o "conContenido"
+  asociacionEncargaTitulo Boolean        @default(false) // solo fundador
+  notas                  String?
+  archivoWord            String?         // URL en Cloudinary
+  archivoPdf             String?         // URL en Cloudinary
+  estado                 String          @default("pendiente") // "pendiente", "en revision", "completado"
+  pedido                 Pedido          @relation(fields: [pedidoId], references: [id])
+  revisiones             RevisionItem[]
+}
+
+model RevisionItem {
+  id           Int        @id @default(autoincrement())
+  itemPedidoId Int
+  ronda        Int        // número de ronda: 1, 2, 3...
+  autorTipo    String     // "admin" o "cliente"
+  nota         String?    // obligatorio para cliente, opcional para admin
+  archivos     String[]   // URLs de archivos subidos (varios)
+  creadoEn     DateTime   @default(now())
+  item         ItemPedido @relation(fields: [itemPedidoId], references: [id])
 }
