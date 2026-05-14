@@ -47,6 +47,11 @@ function AdminPedidos() {
   const [motivoRechazo, setMotivoRechazo] = useState("");
   const [rechazandoId, setRechazandoId] = useState<number | null>(null);
 
+  // Nuevos estados para subir avances
+  const [notaAvance, setNotaAvance] = useState<Record<number, string>>({});
+  const [archivosAvance, setArchivosAvance] = useState<Record<number, File[]>>({});
+  const [subiendoAvance, setSubiendoAvance] = useState<number | null>(null);
+
   const headers = {
     "Content-Type": "application/json",
     Authorization: `Bearer ${token}`,
@@ -78,6 +83,44 @@ function AdminPedidos() {
   const completar = async (id: number) => {
     await fetch(`${API_URL}/pedidos/${id}/completar`, { method: "PUT", headers });
     await load();
+  };
+
+  // Subir avance (admin)
+  const subirAvance = async (itemId: number) => {
+    const nota = notaAvance[itemId]?.trim() || "";
+    const archivos = archivosAvance[itemId] || [];
+    setSubiendoAvance(itemId);
+
+    const formData = new FormData();
+    if (nota) formData.append("nota", nota);
+    archivos.forEach(file => formData.append("archivos", file));
+
+    const res = await fetch(`${API_URL}/items/${itemId}/revision`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+
+    if (res.ok) {
+      setNotaAvance(prev => ({ ...prev, [itemId]: "" }));
+      setArchivosAvance(prev => ({ ...prev, [itemId]: [] }));
+      if (selected) {
+        const detalleRes = await fetch(`${API_URL}/pedidos/${selected.id}`, { headers });
+        if (detalleRes.ok) setSelected(await detalleRes.json());
+      }
+    } else {
+      alert("Error al subir avance");
+    }
+    setSubiendoAvance(null);
+  };
+
+  // Marcar ítem como completado
+  const marcarCompletado = async (itemId: number) => {
+    await fetch(`${API_URL}/items/${itemId}/completar`, { method: "PUT", headers });
+    if (selected) {
+      const detalleRes = await fetch(`${API_URL}/pedidos/${selected.id}`, { headers });
+      if (detalleRes.ok) setSelected(await detalleRes.json());
+    }
   };
 
   const getEstadoColor = (estado: string) => {
@@ -191,6 +234,43 @@ function AdminPedidos() {
                     ))}
                   </div>
                 )}
+
+                {/* Formulario de avance (admin) */}
+                {item.estado !== "completado" && (
+                  <div style={{ marginTop: 12, borderTop: "1px solid #334155", paddingTop: 12 }}>
+                    <p style={{ color: "#94a3b8", fontSize: 11, marginBottom: 8, textTransform: "uppercase" }}>
+                      Subir avance
+                    </p>
+                    <textarea
+                      placeholder="Nota del avance (opcional)"
+                      value={notaAvance[item.id] || ""}
+                      onChange={e => setNotaAvance(prev => ({ ...prev, [item.id]: e.target.value }))}
+                      rows={2}
+                      style={{ width: "100%", padding: 8, borderRadius: 6, border: "none", background: "#0f172a", color: "white", fontSize: 12, resize: "none", boxSizing: "border-box", marginBottom: 6 }}
+                    />
+                    <input
+                      type="file"
+                      multiple
+                      onChange={e => setArchivosAvance(prev => ({ ...prev, [item.id]: Array.from(e.target.files || []) }))}
+                      style={{ color: "white", fontSize: 11, marginBottom: 6 }}
+                    />
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <button
+                        onClick={() => subirAvance(item.id)}
+                        disabled={subiendoAvance === item.id}
+                        style={{ ...btnBlue, fontSize: 12, padding: "6px 12px" }}
+                      >
+                        {subiendoAvance === item.id ? "Subiendo..." : "📤 Enviar avance"}
+                      </button>
+                      <button
+                        onClick={() => marcarCompletado(item.id)}
+                        style={{ ...btnGreen, fontSize: 12, padding: "6px 12px" }}
+                      >
+                        ✅ Marcar como completado
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -248,6 +328,7 @@ function AdminPedidos() {
   );
 }
 
+const btnBlue: React.CSSProperties = { background: "#3b82f6", border: "none", padding: "8px 14px", borderRadius: 8, color: "white", fontWeight: "bold", cursor: "pointer", fontSize: 13 };
 const btnGreen: React.CSSProperties = { background: "#22c55e", border: "none", padding: "8px 14px", borderRadius: 8, color: "white", fontWeight: "bold", cursor: "pointer", fontSize: 13 };
 const btnRed: React.CSSProperties = { background: "#ef4444", border: "none", padding: "8px 14px", borderRadius: 8, color: "white", fontWeight: "bold", cursor: "pointer", fontSize: 13 };
 const btnGray: React.CSSProperties = { background: "#334155", border: "none", padding: "8px 14px", borderRadius: 8, color: "white", fontWeight: "bold", cursor: "pointer", fontSize: 13 };
