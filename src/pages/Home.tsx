@@ -208,7 +208,7 @@ function Home() {
       </section>
 
       {/* ─── SECCIÓN DE PAGO ────────────────────────────────────────── */}
-      <section style={{
+      <section id="seccion-pago" style={{
         padding: isMobile ? "40px 20px" : "60px 40px",
         maxWidth: 800, margin: "0 auto", position: "relative", zIndex: 1,
       }}>
@@ -267,6 +267,7 @@ function Home() {
 function CatalogoProductos() {
   const [productos, setProductos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<any | null>(null);
 
   useEffect(() => {
     fetch(`${import.meta.env.VITE_API_URL}/productos`)
@@ -284,30 +285,82 @@ function CatalogoProductos() {
         const precioFinal = p.descuento > 0 ? p.precio - (p.precio * p.descuento / 100) : p.precio;
         return (
           <div key={p.id} style={{
-            background: "#111", padding: 24, borderRadius: 14,
+            background: "#111", borderRadius: 14,
             border: "1px solid #222", transition: "all 0.3s ease",
-            display: "flex", flexDirection: "column", gap: 12,
-          }}>
-            <h3 style={{ color: "#3b82f6", fontSize: 18, fontWeight: 700 }}>{p.nombre}</h3>
-            <p style={{ color: "#888", fontSize: 13, lineHeight: 1.6, flex: 1 }}>{p.descripcion}</p>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
-              {p.descuento > 0 && (
-                <span style={{ color: "#ef4444", fontSize: 16, textDecoration: "line-through" }}>
-                  Bs {p.precio.toFixed(2)}
+            overflow: "hidden", cursor: "pointer",
+          }} onClick={() => setSelected(p)}>
+            {p.imagenUrl ? (
+              <img src={p.imagenUrl} alt={p.nombre} style={{ width: "100%", height: 180, objectFit: "cover" }} />
+            ) : (
+              <div style={{ width: "100%", height: 180, background: "#1e293b", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 48 }}>📦</div>
+            )}
+            <div style={{ padding: 16 }}>
+              <h3 style={{ color: "#3b82f6", fontSize: 18, fontWeight: 700, marginBottom: 8 }}>{p.nombre}</h3>
+              <p style={{ color: "#888", fontSize: 13, lineHeight: 1.4 }}>{p.descripcion.slice(0, 80)}...</p>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
+                {p.descuento > 0 && (
+                  <span style={{ color: "#ef4444", fontSize: 14, textDecoration: "line-through" }}>
+                    Bs {p.precio.toFixed(2)}
+                  </span>
+                )}
+                <span style={{ color: "#22c55e", fontSize: 20, fontWeight: "bold" }}>
+                  Bs {precioFinal.toFixed(2)}
                 </span>
-              )}
-              <span style={{ color: "#22c55e", fontSize: 22, fontWeight: "bold" }}>
-                Bs {precioFinal.toFixed(2)}
-              </span>
-              {p.descuento > 0 && (
-                <span style={{ background: "#ef4444", color: "white", padding: "2px 10px", borderRadius: 99, fontSize: 12, fontWeight: "bold" }}>
-                  -{p.descuento}%
-                </span>
-              )}
+                {p.descuento > 0 && (
+                  <span style={{ background: "#ef4444", color: "white", padding: "2px 10px", borderRadius: 99, fontSize: 12, fontWeight: "bold" }}>
+                    -{p.descuento}%
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         );
       })}
+
+      {/* Modal de detalle */}
+      {selected && (
+        <div style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)",
+          display: "flex", justifyContent: "center", alignItems: "center",
+          zIndex: 9999, padding: "20px",
+        }} onClick={() => setSelected(null)}>
+          <div style={{
+            background: "#1e293b", borderRadius: 16, maxWidth: 500, width: "100%",
+            padding: 28, color: "white", position: "relative",
+          }} onClick={e => e.stopPropagation()}>
+            <button onClick={() => setSelected(null)} style={{
+              position: "absolute", top: 12, right: 12,
+              background: "none", border: "none", color: "#94a3b8",
+              cursor: "pointer", fontSize: 20,
+            }}>✕</button>
+            {selected.imagenUrl && (
+              <img src={selected.imagenUrl} alt={selected.nombre} style={{ width: "100%", maxHeight: 250, objectFit: "cover", borderRadius: 12, marginBottom: 16 }} />
+            )}
+            <h2 style={{ fontSize: 22, marginBottom: 8 }}>{selected.nombre}</h2>
+            <p style={{ color: "#94a3b8", fontSize: 14, lineHeight: 1.6, marginBottom: 16 }}>{selected.descripcion}</p>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+              {selected.descuento > 0 && (
+                <span style={{ color: "#ef4444", fontSize: 16, textDecoration: "line-through" }}>
+                  Bs {selected.precio.toFixed(2)}
+                </span>
+              )}
+              <span style={{ color: "#22c55e", fontSize: 24, fontWeight: "bold" }}>
+                Bs {(selected.descuento > 0 ? selected.precio - (selected.precio * selected.descuento / 100) : selected.precio).toFixed(2)}
+              </span>
+            </div>
+            <button onClick={() => {
+              setSelected(null);
+              document.getElementById("seccion-pago")?.scrollIntoView({ behavior: "smooth" });
+            }} style={{
+              width: "100%", padding: 14,
+              background: "#3b82f6", border: "none", borderRadius: 10,
+              color: "white", fontWeight: "bold", fontSize: 16, cursor: "pointer",
+            }}>
+              🛒 Quiero este servicio
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -376,26 +376,33 @@ app.get("/productos/admin", auth, async (req, res) => {
   res.json(await prisma.producto.findMany({ orderBy: { creadoEn: "desc" } }));
 });
 
-app.post("/productos", auth, async (req, res) => {
+app.post("/productos", auth, upload.single("imagen"), async (req: any, res) => {
   const { nombre, descripcion, precio, descuento } = req.body;
+  let imagenUrl: string | undefined;
+  if (req.file) {
+    imagenUrl = await subirImagen(req.file.buffer, "productos", "image");
+  }
   res.json(await prisma.producto.create({
-    data: { nombre, descripcion, precio, descuento: descuento || 0 },
+    data: { nombre, descripcion, precio: Number(precio), descuento: descuento ? Number(descuento) : 0, imagenUrl },
   }));
 });
 
-app.put("/productos/:id", auth, async (req, res) => {
+app.put("/productos/:id", auth, upload.single("imagen"), async (req: any, res) => {
   const id = Number(req.params.id);
   const { nombre, descripcion, precio, descuento, activo } = req.body;
-  res.json(await prisma.producto.update({
-    where: { id },
-    data: {
-      ...(nombre !== undefined && { nombre }),
-      ...(descripcion !== undefined && { descripcion }),
-      ...(precio !== undefined && { precio }),
-      ...(descuento !== undefined && { descuento }),
-      ...(activo !== undefined && { activo }),
-    },
-  }));
+  let imagenUrl: string | undefined;
+  if (req.file) {
+    imagenUrl = await subirImagen(req.file.buffer, "productos", "image");
+  }
+  const data: any = {};
+  if (nombre !== undefined) data.nombre = nombre;
+  if (descripcion !== undefined) data.descripcion = descripcion;
+  if (precio !== undefined) data.precio = Number(precio);
+  if (descuento !== undefined) data.descuento = Number(descuento);
+  if (activo !== undefined) data.activo = activo === "true" || activo === true;
+  if (imagenUrl) data.imagenUrl = imagenUrl;
+
+  res.json(await prisma.producto.update({ where: { id }, data }));
 });
 
 app.delete("/productos/:id", auth, async (req, res) => {
@@ -922,6 +929,16 @@ app.post("/items/:id/revision", auth, upload.array("archivos", 5), async (req: a
     console.warn("No se pudo notificar:", err);
   }
   res.json(revision);
+});
+
+// ─── COMPLETAR ÍTEM ──────────────────────────────────────────────────────────
+app.put("/items/:id/completar", auth, async (req, res) => {
+  const id = Number(req.params.id);
+  const item = await prisma.itemPedido.update({
+    where: { id },
+    data: { estado: "completado" },
+  });
+  res.json(item);
 });
 
 // ─── MENSAJES ─────────────────────────────────────────────────────────────────

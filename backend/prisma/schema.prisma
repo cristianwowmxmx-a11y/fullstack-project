@@ -212,6 +212,7 @@ model Producto {
   precio      Float
   descuento   Float    @default(0)
   activo      Boolean  @default(true)
+  imagenUrl   String?
   creadoEn    DateTime @default(now())
 }
 
