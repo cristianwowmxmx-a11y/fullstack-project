@@ -120,28 +120,29 @@ function Home() {
       </section>
 
       {/* ─── CATÁLOGO DE PRODUCTOS ─────────────────────────────────── */}
-      <section style={{
-        padding: isMobile ? "40px 20px" : "60px 40px",
-        maxWidth: 1100, margin: "0 auto", position: "relative", zIndex: 1,
-      }}>
-        <div style={{ textAlign: "center", marginBottom: 40 }}>
-          <p style={{ color: "#3b82f6", letterSpacing: 4, fontSize: 12, textTransform: "uppercase", marginBottom: 12 }}>
-            Catálogo de Servicios
-          </p>
-          <h2 style={{ fontSize: isMobile ? 24 : 36, fontWeight: 700, marginBottom: 16 }}>
-            Nuestros Productos Editoriales
-          </h2>
-          <div style={{ width: 60, height: 3, background: "#3b82f6", margin: "0 auto 20px", borderRadius: 99 }} />
-        </div>
+      {/* ─── CATÁLOGO DE PRODUCTOS ─────────────────────────────────── */}
+<section style={{
+  padding: isMobile ? "40px 20px" : "60px 40px",
+  maxWidth: 1100, margin: "0 auto", position: "relative", zIndex: 1,
+}}>
+  <div style={{ textAlign: "center", marginBottom: 40 }}>
+    <p style={{ color: "#3b82f6", letterSpacing: 4, fontSize: 12, textTransform: "uppercase", marginBottom: 12 }}>
+      Catálogo de Servicios
+    </p>
+    <h2 style={{ fontSize: isMobile ? 24 : 36, fontWeight: 700, marginBottom: 16 }}>
+      Nuestros Productos Editoriales
+    </h2>
+    <div style={{ width: 60, height: 3, background: "#3b82f6", margin: "0 auto 20px", borderRadius: 99 }} />
+  </div>
 
-        <div id="catalogo" style={{
-          display: "grid",
-          gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)",
-          gap: 20,
-        }}>
-          <CatalogoProductos />
-        </div>
-      </section>
+  <div id="catalogo" style={{
+    display: "grid",
+    gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", // Cambiado a 2 columnas
+    gap: 24,
+  }}>
+    <CatalogoProductos />
+  </div>
+</section>
 
       {/* ─── SECCIÓN DE PAGO ────────────────────────────────────────── */}
       <section id="seccion-pago" style={{
@@ -247,26 +248,27 @@ function CatalogoProductos() {
             background: "#111", borderRadius: 14,
             border: "1px solid #222", transition: "all 0.3s ease",
             overflow: "hidden", cursor: "pointer",
+            display: "flex", flexDirection: "column", // Para que el contenido ocupe todo el alto
           }} onClick={() => setSelected(p)}>
             {p.imagenUrl ? (
-              <img src={p.imagenUrl} alt={p.nombre} style={{ width: "100%", height: 180, objectFit: "cover" }} />
+              <img src={p.imagenUrl} alt={p.nombre} style={{ width: "100%", height: 280, objectFit: "cover" }} />
             ) : (
-              <div style={{ width: "100%", height: 180, background: "#1e293b", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 48 }}>📦</div>
+              <div style={{ width: "100%", height: 280, background: "#1e293b", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 64 }}>📦</div>
             )}
-            <div style={{ padding: 16 }}>
-              <h3 style={{ color: "#3b82f6", fontSize: 18, fontWeight: 700, marginBottom: 8 }}>{p.nombre}</h3>
-              <p style={{ color: "#888", fontSize: 13, lineHeight: 1.4 }}>{p.descripcion.slice(0, 80)}...</p>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
+            <div style={{ padding: 24, flex: 1, display: "flex", flexDirection: "column" }}>
+              <h3 style={{ color: "#3b82f6", fontSize: 20, fontWeight: 700, marginBottom: 12 }}>{p.nombre}</h3>
+              <p style={{ color: "#888", fontSize: 14, lineHeight: 1.5, flex: 1 }}>{p.descripcion.slice(0, 120)}...</p>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 16 }}>
                 {p.descuento > 0 && (
-                  <span style={{ color: "#ef4444", fontSize: 14, textDecoration: "line-through" }}>
+                  <span style={{ color: "#ef4444", fontSize: 16, textDecoration: "line-through" }}>
                     Bs {p.precio.toFixed(2)}
                   </span>
                 )}
-                <span style={{ color: "#22c55e", fontSize: 20, fontWeight: "bold" }}>
+                <span style={{ color: "#22c55e", fontSize: 24, fontWeight: "bold" }}>
                   Bs {precioFinal.toFixed(2)}
                 </span>
                 {p.descuento > 0 && (
-                  <span style={{ background: "#ef4444", color: "white", padding: "2px 10px", borderRadius: 99, fontSize: 12, fontWeight: "bold" }}>
+                  <span style={{ background: "#ef4444", color: "white", padding: "2px 10px", borderRadius: 99, fontSize: 13, fontWeight: "bold" }}>
                     -{p.descuento}%
                   </span>
                 )}
@@ -275,6 +277,7 @@ function CatalogoProductos() {
           </div>
         );
       })}
+    
 
       {/* Modal de detalle */}
       {selected && (
