@@ -198,20 +198,20 @@ function CarritoPage() {
 
                 {/* QR y datos bancarios */}
                 <div style={{ background: "#0f172a", padding: 20, borderRadius: 10, textAlign: "center", marginBottom: 20 }}>
-                 <img
-  src="/qr-pago.jpeg"
-  alt="QR de pago"
-  style={{
-    width: "100%",
-    maxWidth: isMobile ? 300 : 500,
-    borderRadius: 10,
-    display: "block",
-    objectFit: "contain",
-  }}
-/>
+                  <img
+                    src="/qr-pago.jpeg"
+                    alt="QR de pago"
+                    style={{
+                      width: "100%",
+                      maxWidth: isMobile ? 220 : 300,
+                      margin: "0 auto",
+                      borderRadius: 10,
+                      display: "block",
+                      objectFit: "contain",
+                    }}
+                  />
                   <a
-                    
-href="/qr-pago.jpeg"
+                    href="/qr-pago.jpeg"
                     download="QR_Pago_Vanguardistas.jpg"
                     style={{
                       display: "inline-block",
@@ -247,7 +247,6 @@ href="/qr-pago.jpeg"
                     </button>
                     <button onClick={() => setModo("declarar")} style={btnStyle}>
                       📝 Declarar pago
-                      "Si no tiene el comprobante"
                     </button>
                   </div>
                 ) : (
