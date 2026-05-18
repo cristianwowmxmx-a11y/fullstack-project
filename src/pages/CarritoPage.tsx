@@ -202,8 +202,8 @@ function CarritoPage() {
                     src="/qr-pago.jpeg"
                     alt="QR de pago"
                     style={{
-                      width: isMobile ? 160 : 200,
-                      height: isMobile ? 160 : 200,
+                      width: isMobile ? 300 : 500,
+                      height: isMobile ? 300 : 500,
                       margin: "0 auto 12px",
                       borderRadius: 10,
                       display: "block",
