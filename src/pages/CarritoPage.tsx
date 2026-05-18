@@ -200,7 +200,7 @@ function CarritoPage() {
                 {/* QR y datos bancarios */}
 <div style={{ background: "#0f172a", padding: 20, borderRadius: 10, textAlign: "center", marginBottom: 20 }}>
   <img
-    src="/qr-pago.jpg"
+    src="/qr-pago.jpeg"
     alt="QR de pago"
     style={{
       width: 130,
