@@ -210,7 +210,8 @@ function CarritoPage() {
   }}
 />
                   <a
-                    href="/qr-pago.jpg"
+                    
+href="/qr-pago.jpeg"
                     download="QR_Pago_Vanguardistas.jpg"
                     style={{
                       display: "inline-block",
