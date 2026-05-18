@@ -10,7 +10,7 @@ import Acerca from "./pages/Acerca";
 import Publicaciones from "./pages/Publicaciones";
 import ClientProtectedRoute from "./components/ClientProtectedRoute";
 import ClientePanel from "./pages/ClientePanel";
-
+import CarritoPage from "./pages/CarritoPage";
 function App() {
   return (
     <div>
@@ -23,6 +23,7 @@ function App() {
         <Route path="/acerca" element={<Acerca />} />
         <Route path="/publicaciones" element={<Publicaciones />} />
         <Route path="/formulario/:token" element={<ClientForm />} />
+        <Route path="/carrito" element={<CarritoPage />} />
 
         {/* PRIVADAS */}
         <Route path="/admin" element={

@@ -1,8 +1,10 @@
 import { useEffect, useState, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { useWindowSize } from "../hooks/useWindowSize";
 
 function Home() {
   const { isMobile } = useWindowSize();
+  const navigate = useNavigate();
   const [typedText, setTypedText] = useState("");
   const [showSub, setShowSub] = useState(false);
   const lightRef = useRef<HTMLDivElement>(null);
@@ -179,6 +181,7 @@ function Home() {
 
 // ─── Componente de Catálogo de Productos ────────────────────────────────────
 function CatalogoProductos() {
+  const navigate = useNavigate();
   const [productos, setProductos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<any | null>(null);
@@ -202,15 +205,6 @@ function CatalogoProductos() {
     setCarrito(prev => [...prev, producto]);
   };
 
-  const quitarDelCarrito = (index: number) => {
-    setCarrito(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const total = carrito.reduce((sum, p) => {
-    const precio = p.descuento > 0 ? p.precio - (p.precio * p.descuento / 100) : p.precio;
-    return sum + precio;
-  }, 0);
-
   if (loading) return <p style={{ color: "#94a3b8", textAlign: "center", gridColumn: "1/-1" }}>Cargando productos...</p>;
   if (productos.length === 0) return <p style={{ color: "#64748b", textAlign: "center", gridColumn: "1/-1" }}>Próximamente nuevos servicios.</p>;
 
@@ -224,9 +218,9 @@ function CatalogoProductos() {
             border: "1px solid #222", transition: "all 0.3s ease",
             overflow: "hidden", cursor: "pointer",
             display: "flex", flexDirection: "column",
-          }} onClick={() => setSelected(p)}>
-            {/* Imagen con proporción 2:3 (alto = ancho * 1.5) usando padding-top: 150% */}
-            <div style={{ position: "relative", width: "100%", paddingTop: "150%", overflow: "hidden" }}>
+          }}>
+            {/* Imagen con proporción 2:3 */}
+            <div onClick={() => setSelected(p)} style={{ position: "relative", width: "100%", paddingTop: "150%", overflow: "hidden" }}>
               {p.imagenUrl ? (
                 <img src={p.imagenUrl} alt={p.nombre} style={{
                   position: "absolute", top: 0, left: 0,
@@ -244,8 +238,25 @@ function CatalogoProductos() {
             {/* Contenido textual */}
             <div style={{ padding: 20, flex: 1, display: "flex", flexDirection: "column", gap: 8 }}>
               <h3 style={{ color: "#3b82f6", fontSize: 18, fontWeight: 700, margin: 0 }}>{p.nombre}</h3>
-              <p style={{ color: "#888", fontSize: 14, lineHeight: 1.5, flex: 1 }}>{p.descripcion.slice(0, 100)}...</p>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+              {/* Descripción limitada a 3 líneas */}
+              <p style={{
+                color: "#888", fontSize: 14, lineHeight: 1.5, flex: 1,
+                overflow: "hidden",
+                display: "-webkit-box",
+                WebkitLineClamp: 3,
+                WebkitBoxOrient: "vertical",
+                textOverflow: "ellipsis",
+              }}>
+                {p.descripcion}
+              </p>
+              {/* Enlace "Ver más" */}
+              <p
+                onClick={(e) => { e.stopPropagation(); setSelected(p); }}
+                style={{ color: "#60a5fa", fontSize: 12, cursor: "pointer", textDecoration: "underline", margin: 0 }}
+              >
+                Ver más
+              </p>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
                 {p.descuento > 0 && (
                   <span style={{ color: "#ef4444", fontSize: 16, textDecoration: "line-through" }}>
                     Bs {p.precio.toFixed(2)}
@@ -260,6 +271,17 @@ function CatalogoProductos() {
                   </span>
                 )}
               </div>
+              {/* Botón Comprar */}
+              <button onClick={(e) => {
+                e.stopPropagation();
+                agregarAlCarrito(p);
+              }} style={{
+                marginTop: 8, width: "100%", padding: 10,
+                background: "#22c55e", border: "none", borderRadius: 8,
+                color: "white", fontWeight: "bold", fontSize: 14, cursor: "pointer",
+              }}>
+                🛒 Comprar
+              </button>
             </div>
           </div>
         );
@@ -307,40 +329,6 @@ function CatalogoProductos() {
               🛒 Agregar al carrito
             </button>
           </div>
-        </div>
-      )}
-
-      {/* ─── CARRITO FLOTANTE ─────────────────────────────────────── */}
-      {carrito.length > 0 && (
-        <div style={{
-          position: "fixed", bottom: 20, left: 20, zIndex: 999,
-          background: "#1e293b", borderRadius: 16, padding: 16,
-          boxShadow: "0 8px 24px rgba(0,0,0,0.6)", minWidth: 260,
-          maxWidth: 320,
-        }}>
-          <h3 style={{ marginBottom: 12, color: "#f59e0b", fontSize: 15 }}>🛒 Mi carrito ({carrito.length})</h3>
-          <div style={{ maxHeight: 200, overflowY: "auto", marginBottom: 12 }}>
-            {carrito.map((item, i) => {
-              const precio = item.descuento > 0 ? item.precio - (item.precio * item.descuento / 100) : item.precio;
-              return (
-                <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "1px solid #334155", color: "#94a3b8", fontSize: 12 }}>
-                  <span>{item.nombre}</span>
-                  <span>Bs {precio.toFixed(2)}</span>
-                  <button onClick={() => quitarDelCarrito(i)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: 14 }}>✕</button>
-                </div>
-              );
-            })}
-          </div>
-          <div style={{ borderTop: "1px solid #334155", paddingTop: 8, marginBottom: 8 }}>
-            <p style={{ color: "white", fontSize: 13 }}>Total: <strong style={{ color: "#22c55e" }}>Bs {total.toFixed(2)}</strong></p>
-          </div>
-          <button onClick={() => setCarrito([])} style={{
-            width: "100%", padding: 10, marginTop: 6,
-            background: "none", border: "1px solid #ef4444", borderRadius: 8,
-            color: "#ef4444", fontSize: 13, cursor: "pointer",
-          }}>
-            Vaciar carrito
-          </button>
         </div>
       )}
     </>
