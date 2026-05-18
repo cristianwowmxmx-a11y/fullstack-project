@@ -7,7 +7,6 @@ function CarritoPage() {
   const { isMobile } = useWindowSize();
   const [carrito, setCarrito] = useState<any[]>([]);
 
-  // Paso del flujo: "carrito" | "celular" | "pago" | "confirmacion"
   const [step, setStep] = useState<"carrito" | "celular" | "pago" | "confirmacion">("carrito");
   const [celular, setCelular] = useState("");
   const [modo, setModo] = useState<"subir" | "declarar" | null>(null);
@@ -198,23 +197,37 @@ function CarritoPage() {
                 <h3 style={{ marginBottom: 16, fontSize: 18 }}>💳 Realiza tu pago</h3>
 
                 {/* QR y datos bancarios */}
-<div style={{ background: "#0f172a", padding: 20, borderRadius: 10, textAlign: "center", marginBottom: 20 }}>
-  <img
-    src="/qr-pago.jpeg"
-    alt="QR de pago"
-    style={{
-      width: 130,
-      height: 130,
-      margin: "0 auto 12px",
-      borderRadius: 10,
-      display: "block",
-      objectFit: "contain",
-    }}
-  />
-  <p style={{ color: "#94a3b8", fontSize: 13 }}>Banco: Banco Unión</p>
-  <p style={{ color: "#94a3b8", fontSize: 13 }}>Cuenta: 123456789</p>
-  <p style={{ color: "#94a3b8", fontSize: 13 }}>Titular: Asociación Vanguardistas 3.0</p>
-</div>
+                <div style={{ background: "#0f172a", padding: 20, borderRadius: 10, textAlign: "center", marginBottom: 20 }}>
+                  <img
+                    src="/qr-pago.jpeg"
+                    alt="QR de pago"
+                    style={{
+                      width: isMobile ? 160 : 200,
+                      height: isMobile ? 160 : 200,
+                      margin: "0 auto 12px",
+                      borderRadius: 10,
+                      display: "block",
+                      objectFit: "contain",
+                    }}
+                  />
+                  <a
+                    href="/qr-pago.jpg"
+                    download="QR_Pago_Vanguardistas.jpg"
+                    style={{
+                      display: "inline-block",
+                      marginTop: 8,
+                      color: "#60a5fa",
+                      fontSize: 13,
+                      textDecoration: "underline",
+                      cursor: "pointer",
+                    }}
+                  >
+                    📥 Descargar QR para pagar desde el celular
+                  </a>
+                  <p style={{ color: "#94a3b8", fontSize: 13, marginTop: 12 }}>Banco: Banco Unión</p>
+                  <p style={{ color: "#94a3b8", fontSize: 13 }}>Cuenta: 123456789</p>
+                  <p style={{ color: "#94a3b8", fontSize: 13 }}>Titular: Asociación Vanguardistas 3.0</p>
+                </div>
 
                 {/* Mensaje de monto sugerido */}
                 <div style={{ background: "#1e3a5f", padding: 14, borderRadius: 8, marginBottom: 20, textAlign: "center" }}>
