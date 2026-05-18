@@ -1,10 +1,8 @@
 import { useEffect, useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
 import { useWindowSize } from "../hooks/useWindowSize";
 
 function Home() {
   const { isMobile } = useWindowSize();
-  const navigate = useNavigate();
   const [typedText, setTypedText] = useState("");
   const [showSub, setShowSub] = useState(false);
   const lightRef = useRef<HTMLDivElement>(null);
@@ -34,13 +32,6 @@ function Home() {
     window.addEventListener("mousemove", handleMouseMove);
     return () => window.removeEventListener("mousemove", handleMouseMove);
   }, []);
-
-  const stats = [
-    { number: "50+", label: "Libros publicados", icon: "📚" },
-    { number: "30+", label: "Revistas editadas", icon: "📘" },
-    { number: "100+", label: "Autores registrados", icon: "✍️" },
-    { number: "3+", label: "Años de experiencia", icon: "🏅" },
-  ];
 
   return (
     <div style={{ background: "#000", color: "white", overflowX: "hidden", minHeight: "100vh" }}>
@@ -125,61 +116,6 @@ function Home() {
             Publicamos libros y revistas con respaldo legal en Bolivia.
             Somos la Asociación de Escritores Vanguardistas 3.0 — El Alto, Bolivia.
           </p>
-
-          {/* BOTONES */}
-          <div style={{
-            display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap",
-            opacity: showSub ? 1 : 0, transition: "all 1s ease 0.3s",
-          }}>
-            <button className="btn-primary" onClick={() => navigate("/servicios")} style={{
-              background: "#3b82f6", border: "none",
-              padding: isMobile ? "12px 28px" : "14px 36px",
-              borderRadius: 8, color: "white",
-              fontSize: isMobile ? 14 : 16,
-              cursor: "pointer", fontWeight: 700, transition: "background 0.3s",
-            }}>
-              Ver servicios
-            </button>
-            <button className="btn-outline" onClick={() => navigate("/publicaciones")} style={{
-              background: "transparent", border: "2px solid #3b82f6",
-              padding: isMobile ? "12px 28px" : "14px 36px",
-              borderRadius: 8, color: "#3b82f6",
-              fontSize: isMobile ? 14 : 16,
-              cursor: "pointer", fontWeight: 700, transition: "all 0.3s",
-            }}>
-              Ver publicaciones
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* ESTADÍSTICAS */}
-      <section style={{
-        padding: isMobile ? "40px 20px" : "60px 40px",
-        maxWidth: 1100, margin: "0 auto", position: "relative", zIndex: 1,
-      }}>
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)",
-          gap: 20,
-        }}>
-          {stats.map((s, i) => (
-            <div key={i} className="stat-card" style={{
-              background: "#111", padding: isMobile ? 20 : 28,
-              borderRadius: 16, textAlign: "center",
-              border: "1px solid #222", transition: "all 0.4s ease",
-              animation: `countUp 0.6s ease ${i * 0.1}s both`,
-            }}>
-              <div style={{ fontSize: 32, marginBottom: 8 }}>{s.icon}</div>
-              <div style={{
-                fontSize: isMobile ? 28 : 36, fontWeight: 700,
-                color: "#3b82f6", marginBottom: 4,
-              }}>
-                {s.number}
-              </div>
-              <div style={{ color: "#888", fontSize: 13 }}>{s.label}</div>
-            </div>
-          ))}
         </div>
       </section>
 
