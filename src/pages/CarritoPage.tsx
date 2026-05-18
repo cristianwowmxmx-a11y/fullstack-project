@@ -247,6 +247,7 @@ href="/qr-pago.jpeg"
                     </button>
                     <button onClick={() => setModo("declarar")} style={btnStyle}>
                       📝 Declarar pago
+                      "Si no tiene el comprobante"
                     </button>
                   </div>
                 ) : (
