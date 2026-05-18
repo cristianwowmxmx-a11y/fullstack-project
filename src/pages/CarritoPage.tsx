@@ -198,18 +198,17 @@ function CarritoPage() {
 
                 {/* QR y datos bancarios */}
                 <div style={{ background: "#0f172a", padding: 20, borderRadius: 10, textAlign: "center", marginBottom: 20 }}>
-                  <img
-                    src="/qr-pago.jpeg"
-                    alt="QR de pago"
-                    style={{
-                      width: isMobile ? 300 : 500,
-                      height: isMobile ? 300 : 500,
-                      margin: "0 auto 12px",
-                      borderRadius: 10,
-                      display: "block",
-                      objectFit: "contain",
-                    }}
-                  />
+                 <img
+  src="/qr-pago.jpeg"
+  alt="QR de pago"
+  style={{
+    width: "100%",
+    maxWidth: isMobile ? 300 : 500,
+    borderRadius: 10,
+    display: "block",
+    objectFit: "contain",
+  }}
+/>
                   <a
                     href="/qr-pago.jpg"
                     download="QR_Pago_Vanguardistas.jpg"
