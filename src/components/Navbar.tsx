@@ -26,7 +26,6 @@ function Navbar() {
 
   const isActive = (path: string) => location.pathname === path;
 
-  // Efecto para leer la cantidad de productos en el carrito desde localStorage
   useEffect(() => {
     const update = () => {
       try {
@@ -45,7 +44,6 @@ function Navbar() {
     };
   }, []);
 
-  // Ocultar navbar en admin, formulario y portal del cliente
   if (
     location.pathname.startsWith("/admin") ||
     location.pathname.startsWith("/formulario") ||
@@ -135,8 +133,8 @@ function Navbar() {
 
         {/* DESKTOP */}
         {!isMobile && (
-          <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
-            {/* Ícono del carrito (siempre visible) */}
+          <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+            {/* Ícono del carrito */}
             <button
               onClick={() => navigate("/carrito")}
               style={{
@@ -172,6 +170,28 @@ function Navbar() {
                 </span>
               )}
             </button>
+
+            {/* Botón PAGAR (visible solo si hay productos) */}
+            {carritoCount > 0 && (
+              <button
+                onClick={() => navigate("/carrito#pago")}
+                style={{
+                  background: "#22c55e",
+                  border: "none",
+                  padding: "8px 18px",
+                  borderRadius: 8,
+                  color: "white",
+                  cursor: "pointer",
+                  fontWeight: 700,
+                  fontSize: 14,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
+                💳 Pagar
+              </button>
+            )}
 
             {!isAuthenticated ? (
               <>
@@ -291,6 +311,25 @@ function Navbar() {
                 </span>
               )}
             </button>
+
+            {/* Botón PAGAR móvil */}
+            {carritoCount > 0 && (
+              <button
+                onClick={() => navigate("/carrito#pago")}
+                style={{
+                  background: "#22c55e",
+                  border: "none",
+                  padding: "6px 14px",
+                  borderRadius: 8,
+                  color: "white",
+                  cursor: "pointer",
+                  fontWeight: 700,
+                  fontSize: 13,
+                }}
+              >
+                💳 Pagar
+              </button>
+            )}
 
             <button
               onClick={() => setMenuOpen(!menuOpen)}

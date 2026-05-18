@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useWindowSize } from "../hooks/useWindowSize";
 
 function CarritoPage() {
+  const navigate = useNavigate();
   const { isMobile } = useWindowSize();
   const [carrito, setCarrito] = useState<any[]>([]);
   const [modo, setModo] = useState<"qr" | "subir" | "declarar" | null>(null);
@@ -76,7 +78,17 @@ function CarritoPage() {
   return (
     <div style={{ background: "#000", color: "white", minHeight: "100vh", padding: "80px 20px 40px" }}>
       <div style={{ maxWidth: 800, margin: "0 auto" }}>
-        <h1 style={{ fontSize: isMobile ? 24 : 32, marginBottom: 24 }}>🛒 Mi Carrito</h1>
+        <h1 style={{ fontSize: isMobile ? 24 : 32, marginBottom: 8 }}>🛒 Mi Carrito</h1>
+        {/* Enlace para seguir comprando */}
+        <p
+          onClick={() => navigate("/")}
+          style={{
+            color: "#60a5fa", fontSize: 13, cursor: "pointer",
+            textDecoration: "underline", marginBottom: 24,
+          }}
+        >
+          ← Seguir comprando
+        </p>
 
         {mensaje ? (
           <div style={{ background: "#1e293b", padding: 28, borderRadius: 14, textAlign: "center" }}>
@@ -86,6 +98,16 @@ function CarritoPage() {
         ) : carrito.length === 0 ? (
           <div style={{ textAlign: "center", padding: 40, background: "#1e293b", borderRadius: 14 }}>
             <p style={{ color: "#64748b", fontSize: 16 }}>Tu carrito está vacío.</p>
+            <button
+              onClick={() => navigate("/")}
+              style={{
+                marginTop: 16, background: "#3b82f6", border: "none",
+                padding: "10px 20px", borderRadius: 8, color: "white",
+                fontWeight: "bold", cursor: "pointer", fontSize: 14,
+              }}
+            >
+              Ir al catálogo
+            </button>
           </div>
         ) : (
           <>
@@ -115,8 +137,8 @@ function CarritoPage() {
               </p>
             </div>
 
-            {/* Sección de pago */}
-            <div style={{ background: "#1e293b", padding: 24, borderRadius: 14 }}>
+            {/* Sección de pago (con id para el scroll) */}
+            <div id="pago" style={{ background: "#1e293b", padding: 24, borderRadius: 14 }}>
               <h2 style={{ marginBottom: 16, fontSize: 20 }}>💳 Proceder al pago</h2>
 
               {!modo ? (
