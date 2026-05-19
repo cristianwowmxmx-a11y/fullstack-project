@@ -487,6 +487,40 @@ app.put("/pagos/:id/verificar", auth, async (req, res) => {
     });
     await prisma.pago.update({ where: { id }, data: { clienteId: cliente.id } });
 
+    // ── CREAR PEDIDO AUTOMÁTICAMENTE SI HAY PRODUCTOS ──
+    if (pago.productos) {
+      try {
+        const itemsCarrito = JSON.parse(pago.productos);
+        if (Array.isArray(itemsCarrito) && itemsCarrito.length > 0) {
+          const precios: Record<string, number> = {
+            libroA: 800, libroB: 1100, libroC: 1600,
+            director: 2000, fundador: 800, autor: 500,
+          };
+          const items = itemsCarrito.map((prod: any) => ({
+            tipo: prod.tipo || "autor", // si no tiene tipo, por defecto "autor"
+            titulo: prod.titulo || prod.nombre || null,
+          }));
+          const montoTotal = items.reduce((sum, item) => sum + (precios[item.tipo] || 0), 0);
+
+          await prisma.pedido.create({
+            data: {
+              clienteId: cliente.id,
+              montoTotal,
+              montoPagado: pago.monto, // el pago actual es el primer abono
+              items: {
+                create: items.map((item: any) => ({
+                  tipo: item.tipo,
+                  titulo: item.titulo,
+                })),
+              },
+            },
+          });
+        }
+      } catch (e) {
+        console.error("Error al crear pedido desde productos del carrito:", e);
+      }
+    }
+
     // Enviar link al cliente
     const LINK_PORTAL = process.env.CLIENT_PORTAL_URL || "https://tudominio.com";
     const linkFormulario = `${LINK_PORTAL}/formulario/${token}`;
@@ -500,7 +534,6 @@ app.put("/pagos/:id/verificar", auth, async (req, res) => {
 
   res.json(pago);
 });
-
 app.put("/pagos/:id/rechazar", auth, async (req, res) => {
   const id = Number(req.params.id);
   const { motivoRechazo } = req.body;

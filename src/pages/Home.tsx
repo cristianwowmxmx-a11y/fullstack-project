@@ -202,6 +202,14 @@ function CatalogoProductos() {
   }, [carrito]);
 
   const agregarAlCarrito = (producto: any) => {
+    const nombre = producto.nombre.toLowerCase();
+  let tipo = "autor";
+  if (nombre.includes("categoría a")) tipo = "libroA";
+  else if (nombre.includes("categoría b")) tipo = "libroB";
+  else if (nombre.includes("categoría c")) tipo = "libroC";
+  else if (nombre.includes("director")) tipo = "director";
+  else if (nombre.includes("fundador")) tipo = "fundador";
+
     setCarrito(prev => [...prev, producto]);
   };
 

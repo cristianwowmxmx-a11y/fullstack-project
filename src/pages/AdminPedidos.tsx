@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useWindowSize } from "../hooks/useWindowSize";
+import { useMesActual } from "../hooks/useMesActual";
+import NavegadorMes from "../components/NavegadorMes";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -51,6 +53,8 @@ interface Pedido {
 function AdminPedidos() {
   const { token } = useAuth();
   const { isMobile } = useWindowSize();
+  const { mesLabel, anio, anterior, siguiente, esActual, filtrarPorMes } = useMesActual();
+
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Pedido | null>(null);
@@ -190,6 +194,8 @@ function AdminPedidos() {
     };
     return map[tipo] || tipo;
   };
+
+  const pedidosFiltrados = filtrarPorMes(pedidos);
 
   if (selected) {
     return (
@@ -405,13 +411,19 @@ function AdminPedidos() {
         Gestiona los pedidos de los clientes.
       </p>
 
+      <NavegadorMes
+        mesLabel={mesLabel} anio={anio}
+        onAnterior={anterior} onSiguiente={siguiente}
+        esActual={esActual()}
+      />
+
       {loading ? (
         <p style={{ color: "#94a3b8" }}>Cargando pedidos...</p>
-      ) : pedidos.length === 0 ? (
-        <p style={{ color: "#64748b", textAlign: "center", padding: 40 }}>No hay pedidos registrados aún.</p>
+      ) : pedidosFiltrados.length === 0 ? (
+        <p style={{ color: "#64748b", textAlign: "center", padding: 40 }}>No hay pedidos en {mesLabel} {anio}</p>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {pedidos.map(p => {
+          {pedidosFiltrados.map(p => {
             const sc = getEstadoColor(p.estado);
             return (
               <div key={p.id} style={{

@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useWindowSize } from "../hooks/useWindowSize";
+import { useMesActual } from "../hooks/useMesActual";
+import NavegadorMes from "../components/NavegadorMes";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -18,16 +20,11 @@ interface Pago {
   creadoEn: string;
 }
 
-interface Pedido {
-  id: number;
-  montoTotal: number;
-  montoPagado: number;
-  cliente: { nombreCompleto: string | null; nombres: string | null; apellidoPaterno: string | null };
-}
-
 function AdminPagos() {
   const { token } = useAuth();
   const { isMobile } = useWindowSize();
+  const { mesLabel, anio, anterior, siguiente, esActual, filtrarPorMes } = useMesActual();
+
   const [pagos, setPagos] = useState<Pago[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Pago | null>(null);
@@ -42,9 +39,6 @@ function AdminPagos() {
   const [manualPedidoId, setManualPedidoId] = useState("");
   const [agregandoManual, setAgregandoManual] = useState(false);
 
-  // Pedidos para selector
-  const [pedidos, setPedidos] = useState<Pedido[]>([]);
-
   const headers = {
     "Content-Type": "application/json",
     Authorization: `Bearer ${token}`,
@@ -52,12 +46,8 @@ function AdminPagos() {
 
   const load = async () => {
     setLoading(true);
-    const [pagosRes, pedidosRes] = await Promise.all([
-      fetch(`${API_URL}/pagos`, { headers }),
-      fetch(`${API_URL}/pedidos`, { headers }),
-    ]);
-    if (pagosRes.ok) setPagos(await pagosRes.json());
-    if (pedidosRes.ok) setPedidos(await pedidosRes.json());
+    const res = await fetch(`${API_URL}/pagos`, { headers });
+    if (res.ok) setPagos(await res.json());
     setLoading(false);
   };
 
@@ -114,7 +104,7 @@ function AdminPagos() {
     return { bg: "#422006", color: "#f59e0b" };
   };
 
-  const pagosFiltrados = filtro === "todos" ? pagos : pagos.filter(p => p.estado === filtro);
+  const pagosFiltrados = filtrarPorMes(pagos).filter(p => filtro === "todos" || p.estado === filtro);
 
   return (
     <div>
@@ -152,16 +142,21 @@ function AdminPagos() {
         <input placeholder="Celular (opcional)" value={manualCelular} onChange={e => setManualCelular(e.target.value)} style={{ ...inputStyle, width: 140 }} />
         <select value={manualPedidoId} onChange={e => setManualPedidoId(e.target.value)} style={{ ...inputStyle, width: 200, cursor: "pointer" }}>
           <option value="">Sin pedido asociado</option>
-          {pedidos.map(p => (
-            <option key={p.id} value={p.id}>
-              Pedido #{p.id} — {p.cliente?.nombreCompleto || [p.cliente?.nombres, p.cliente?.apellidoPaterno].filter(Boolean).join(" ") || "Sin nombre"}
-            </option>
-          ))}
+          {pagos.map(p => {
+            if (!p.nombreDeclarado) return null;
+            return <option key={p.id} value={p.id}>{p.nombreDeclarado}</option>;
+          })}
         </select>
         <button onClick={agregarPagoManual} disabled={agregandoManual} style={{ ...btnGreen, fontSize: 13, padding: "8px 14px" }}>
           {agregandoManual ? "..." : "➕ Agregar pago manual"}
         </button>
       </div>
+
+      <NavegadorMes
+        mesLabel={mesLabel} anio={anio}
+        onAnterior={anterior} onSiguiente={siguiente}
+        esActual={esActual()}
+      />
 
       {loading ? (
         <p style={{ color: "#94a3b8" }}>Cargando pagos...</p>
