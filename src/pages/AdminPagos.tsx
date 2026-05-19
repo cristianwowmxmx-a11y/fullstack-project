@@ -14,7 +14,10 @@ interface Pago {
   estado: string;
   motivoRechazo: string | null;
   productos: string | null;
+  celular: string | null;
   creadoEn: string;
+  clienteId: number | null;
+  pedidoId?: number; // si se asocia a un pedido en el futuro
 }
 
 function AdminPagos() {
@@ -22,12 +25,15 @@ function AdminPagos() {
   const { isMobile } = useWindowSize();
   const [pagos, setPagos] = useState<Pago[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<Pago | null>(null);
   const [motivoRechazo, setMotivoRechazo] = useState("");
   const [rechazandoId, setRechazandoId] = useState<number | null>(null);
+  const [filtro, setFiltro] = useState<"todos" | "pendiente" | "verificado" | "rechazado">("todos");
 
   // Pago manual
   const [manualNombre, setManualNombre] = useState("");
   const [manualMonto, setManualMonto] = useState("");
+  const [manualCelular, setManualCelular] = useState("");
   const [agregandoManual, setAgregandoManual] = useState(false);
 
   const headers = {
@@ -46,7 +52,10 @@ function AdminPagos() {
 
   const verificar = async (id: number) => {
     const res = await fetch(`${API_URL}/pagos/${id}/verificar`, { method: "PUT", headers });
-    if (res.ok) await load();
+    if (res.ok) {
+      await load();
+      setSelected(null); // cerrar detalle si está abierto
+    }
   };
 
   const rechazar = async (id: number) => {
@@ -60,6 +69,7 @@ function AdminPagos() {
       setMotivoRechazo("");
       setRechazandoId(null);
       await load();
+      setSelected(null);
     }
   };
 
@@ -69,10 +79,15 @@ function AdminPagos() {
     await fetch(`${API_URL}/pagos/manual`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ nombreDeclarado: manualNombre, monto: Number(manualMonto) }),
+      body: JSON.stringify({
+        nombreDeclarado: manualNombre,
+        monto: Number(manualMonto),
+        celular: manualCelular || null,
+      }),
     });
     setManualNombre("");
     setManualMonto("");
+    setManualCelular("");
     setAgregandoManual(false);
     await load();
   };
@@ -83,8 +98,7 @@ function AdminPagos() {
     return { bg: "#422006", color: "#f59e0b" };
   };
 
-  const pendientes = pagos.filter(p => p.estado === "pendiente");
-  const procesados = pagos.filter(p => p.estado !== "pendiente");
+  const pagosFiltrados = filtro === "todos" ? pagos : pagos.filter(p => p.estado === filtro);
 
   return (
     <div>
@@ -93,10 +107,33 @@ function AdminPagos() {
         Gestiona los pagos de los clientes.
       </p>
 
+      {/* Filtros */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+        {["todos", "pendiente", "verificado", "rechazado"].map(f => (
+          <button
+            key={f}
+            onClick={() => setFiltro(f as any)}
+            style={{
+              padding: "6px 16px",
+              borderRadius: 99,
+              border: "none",
+              background: filtro === f ? "#3b82f6" : "#334155",
+              color: "white",
+              fontWeight: "bold",
+              fontSize: 12,
+              cursor: "pointer",
+            }}
+          >
+            {f === "todos" ? "Todos" : f.charAt(0).toUpperCase() + f.slice(1)}
+          </button>
+        ))}
+      </div>
+
       {/* Formulario de pago manual */}
       <div style={{ background: "#1e293b", padding: 16, borderRadius: 12, marginBottom: 24, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
         <input placeholder="Nombre" value={manualNombre} onChange={e => setManualNombre(e.target.value)} style={{ padding: 8, borderRadius: 6, border: "none", background: "#0f172a", color: "white", fontSize: 13, flex: 1 }} />
         <input placeholder="Monto" type="number" value={manualMonto} onChange={e => setManualMonto(e.target.value)} style={{ padding: 8, borderRadius: 6, border: "none", background: "#0f172a", color: "white", fontSize: 13, width: 100 }} />
+        <input placeholder="Celular (opcional)" value={manualCelular} onChange={e => setManualCelular(e.target.value)} style={{ padding: 8, borderRadius: 6, border: "none", background: "#0f172a", color: "white", fontSize: 13, width: 140 }} />
         <button onClick={agregarPagoManual} disabled={agregandoManual} style={{ ...btnGreen, fontSize: 13, padding: "8px 14px" }}>
           {agregandoManual ? "..." : "➕ Agregar pago manual"}
         </button>
@@ -104,155 +141,151 @@ function AdminPagos() {
 
       {loading ? (
         <p style={{ color: "#94a3b8" }}>Cargando pagos...</p>
+      ) : selected ? (
+        /* ── VISTA DETALLE ──────────────────────────────── */
+        <div>
+          <button onClick={() => setSelected(null)} style={{ ...btnGray, marginBottom: 16 }}>← Volver a la lista</button>
+          <div style={{ background: "#1e293b", padding: 24, borderRadius: 14 }}>
+            <h2 style={{ marginBottom: 12 }}>Pago #{selected.id}</h2>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
+              <div>
+                <p style={{ color: "#64748b", fontSize: 11, textTransform: "uppercase" }}>Nombre</p>
+                <p style={{ color: "white", fontWeight: "bold" }}>{selected.nombreDeclarado}</p>
+              </div>
+              <div>
+                <p style={{ color: "#64748b", fontSize: 11, textTransform: "uppercase" }}>Monto</p>
+                <p style={{ color: "#22c55e", fontWeight: "bold", fontSize: 18 }}>Bs {selected.monto.toFixed(2)}</p>
+              </div>
+              <div>
+                <p style={{ color: "#64748b", fontSize: 11, textTransform: "uppercase" }}>Estado</p>
+                <span style={{ fontSize: 12, padding: "3px 12px", borderRadius: 99, background: getEstadoColor(selected.estado).bg, color: getEstadoColor(selected.estado).color, fontWeight: "bold" }}>
+                  {selected.estado}
+                </span>
+              </div>
+              <div>
+                <p style={{ color: "#64748b", fontSize: 11, textTransform: "uppercase" }}>Tipo</p>
+                <p style={{ color: "white" }}>{selected.tipo === "imagen" ? "📷 Comprobante" : selected.tipo === "manual" ? "✍️ Manual" : "📝 Declarado"}</p>
+              </div>
+              <div>
+                <p style={{ color: "#64748b", fontSize: 11, textTransform: "uppercase" }}>Celular</p>
+                <p style={{ color: "white" }}>{selected.celular || "No registrado"}</p>
+              </div>
+              <div>
+                <p style={{ color: "#64748b", fontSize: 11, textTransform: "uppercase" }}>Fecha</p>
+                <p style={{ color: "white" }}>{new Date(selected.creadoEn).toLocaleString()}</p>
+              </div>
+            </div>
+
+            {selected.descripcion && (
+              <div style={{ marginBottom: 16 }}>
+                <p style={{ color: "#64748b", fontSize: 11, textTransform: "uppercase", marginBottom: 4 }}>Descripción</p>
+                <p style={{ color: "white" }}>{selected.descripcion}</p>
+              </div>
+            )}
+
+            {selected.motivoRechazo && (
+              <div style={{ marginBottom: 16, background: "#7f1d1d", padding: 12, borderRadius: 8 }}>
+                <p style={{ color: "#fca5a5", fontSize: 13 }}>❌ {selected.motivoRechazo}</p>
+              </div>
+            )}
+
+            {/* Productos del carrito */}
+            {selected.productos && (() => {
+              try {
+                const prods = JSON.parse(selected.productos);
+                if (Array.isArray(prods) && prods.length > 0) {
+                  return (
+                    <div style={{ marginBottom: 20 }}>
+                      <p style={{ color: "#64748b", fontSize: 11, textTransform: "uppercase", marginBottom: 8 }}>Productos solicitados</p>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {prods.map((prod: any, idx: number) => (
+                          <div key={idx} style={{ background: "#0f172a", padding: "8px 12px", borderRadius: 6, color: "#60a5fa" }}>📌 {prod.nombre}</div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }
+              } catch { return null; }
+              return null;
+            })()}
+
+            {/* Comprobante */}
+            {selected.imagenUrl && (
+              <div style={{ marginBottom: 20 }}>
+                <p style={{ color: "#64748b", fontSize: 11, textTransform: "uppercase", marginBottom: 8 }}>Comprobante</p>
+                <img src={selected.imagenUrl} alt="comprobante" style={{ maxWidth: "100%", borderRadius: 8 }} />
+              </div>
+            )}
+
+            {/* Acciones */}
+            {selected.estado === "pendiente" && (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <button onClick={() => verificar(selected.id)} style={btnGreen}>✅ Verificar</button>
+                {rechazandoId === selected.id ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <input
+                      placeholder="Motivo del rechazo"
+                      value={motivoRechazo}
+                      onChange={e => setMotivoRechazo(e.target.value)}
+                      style={{ padding: 6, borderRadius: 6, border: "none", background: "#0f172a", color: "white", fontSize: 12, width: 200 }}
+                    />
+                    <div style={{ display: "flex", gap: 4 }}>
+                      <button onClick={() => rechazar(selected.id)} style={btnRed}>Confirmar</button>
+                      <button onClick={() => { setRechazandoId(null); setMotivoRechazo(""); }} style={btnGray}>Cancelar</button>
+                    </div>
+                  </div>
+                ) : (
+                  <button onClick={() => setRechazandoId(selected.id)} style={btnRed}>❌ Rechazar</button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       ) : (
+        /* ── LISTA ──────────────────────────────────────── */
         <>
-          {/* Pendientes */}
-          {pendientes.length > 0 && (
-            <div style={{ marginBottom: 32 }}>
-              <h3 style={{ color: "#f59e0b", marginBottom: 16, fontSize: isMobile ? 15 : 17 }}>
-                ⏳ Pendientes ({pendientes.length})
-              </h3>
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {pendientes.map(p => (
-                  <PagoCard
+          {pagosFiltrados.length === 0 ? (
+            <p style={{ color: "#64748b", textAlign: "center", padding: 40 }}>No hay pagos con este filtro.</p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {pagosFiltrados.map(p => {
+                const sc = getEstadoColor(p.estado);
+                return (
+                  <div
                     key={p.id}
-                    pago={p}
-                    rechazandoId={rechazandoId}
-                    motivoRechazo={motivoRechazo}
-                    setMotivoRechazo={setMotivoRechazo}
-                    setRechazandoId={setRechazandoId}
-                    onVerificar={verificar}
-                    onRechazar={rechazar}
-                  />
-                ))}
-              </div>
+                    onClick={() => setSelected(p)}
+                    style={{
+                      background: "#1e293b", padding: 16, borderRadius: 12,
+                      borderLeft: `4px solid ${sc.color}`,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+                      <div>
+                        <p style={{ color: "white", fontWeight: "bold", fontSize: 15 }}>{p.nombreDeclarado}</p>
+                        <p style={{ color: "#22c55e", fontWeight: "bold", fontSize: 18, margin: "4px 0" }}>
+                          Bs {p.monto.toFixed(2)}
+                        </p>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <span style={{ fontSize: 11, padding: "2px 10px", borderRadius: 99, background: sc.bg, color: sc.color, fontWeight: "bold" }}>
+                            {p.estado}
+                          </span>
+                          <span style={{ fontSize: 11, color: "#64748b" }}>
+                            {p.tipo === "imagen" ? "📷" : p.tipo === "manual" ? "✍️" : "📝"} {p.tipo}
+                          </span>
+                          {p.celular && <span style={{ fontSize: 11, color: "#64748b" }}>📞 {p.celular}</span>}
+                          <span style={{ fontSize: 11, color: "#64748b" }}>{new Date(p.creadoEn).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                      <span style={{ color: "#64748b", fontSize: 18 }}>→</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          )}
-
-          {/* Procesados */}
-          {procesados.length > 0 && (
-            <div>
-              <h3 style={{ color: "#94a3b8", marginBottom: 16, fontSize: isMobile ? 15 : 17 }}>
-                📋 Procesados ({procesados.length})
-              </h3>
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {procesados.map(p => (
-                  <PagoCard
-                    key={p.id}
-                    pago={p}
-                    rechazandoId={null}
-                    motivoRechazo=""
-                    setMotivoRechazo={() => {}}
-                    setRechazandoId={() => {}}
-                    onVerificar={() => {}}
-                    onRechazar={() => {}}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {pagos.length === 0 && (
-            <p style={{ color: "#64748b", textAlign: "center", padding: 40 }}>
-              No hay pagos registrados aún.
-            </p>
           )}
         </>
       )}
-    </div>
-  );
-}
-
-// ─── Tarjeta de pago ──────────────────────────────────────────────────────────
-function PagoCard({
-  pago, rechazandoId, motivoRechazo, setMotivoRechazo,
-  setRechazandoId, onVerificar, onRechazar,
-}: any) {
-  const statusColors = {
-    pendiente: { bg: "#422006", color: "#f59e0b" },
-    verificado: { bg: "#14532d", color: "#22c55e" },
-    rechazado: { bg: "#7f1d1d", color: "#ef4444" },
-  };
-  const sc = statusColors[pago.estado as keyof typeof statusColors];
-
-  return (
-    <div style={{
-      background: "#1e293b", padding: 16, borderRadius: 12,
-      borderLeft: `4px solid ${sc.color}`,
-    }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <p style={{ color: "white", fontWeight: "bold", fontSize: 15 }}>{pago.nombreDeclarado}</p>
-          <p style={{ color: "#22c55e", fontWeight: "bold", fontSize: 18, margin: "4px 0" }}>
-            Bs {pago.monto.toFixed(2)}
-          </p>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 11, padding: "2px 10px", borderRadius: 99, background: sc.bg, color: sc.color, fontWeight: "bold" }}>
-              {pago.estado}
-            </span>
-            <span style={{ fontSize: 11, color: "#64748b" }}>
-              {pago.tipo === "imagen" ? "📷 Comprobante" : pago.tipo === "manual" ? "✍️ Manual" : "📝 Declarado"}
-            </span>
-            <span style={{ fontSize: 11, color: "#64748b" }}>
-              {new Date(pago.creadoEn).toLocaleString()}
-            </span>
-          </div>
-          {pago.descripcion && (
-            <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 6 }}>📝 {pago.descripcion}</p>
-          )}
-          {pago.motivoRechazo && (
-            <p style={{ color: "#ef4444", fontSize: 12, marginTop: 6 }}>❌ {pago.motivoRechazo}</p>
-          )}
-          {/* Productos del carrito asociados al pago */}
-          {pago.productos && (() => {
-            try {
-              const prods = JSON.parse(pago.productos);
-              if (Array.isArray(prods) && prods.length > 0) {
-                return (
-                  <div style={{ marginTop: 6 }}>
-                    <p style={{ color: "#64748b", fontSize: 11, marginBottom: 4 }}>Productos solicitados:</p>
-                    {prods.map((prod: any, idx: number) => (
-                      <span key={idx} style={{ color: "#60a5fa", fontSize: 11, marginRight: 8 }}>📌 {prod.nombre}</span>
-                    ))}
-                  </div>
-                );
-              }
-            } catch { return null; }
-            return null;
-          })()}
-        </div>
-
-        {pago.estado === "pendiente" && (
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {pago.imagenUrl && (
-              <button onClick={() => window.open(pago.imagenUrl!, "_blank")} style={btnGray}>
-                📷 Ver comprobante
-              </button>
-            )}
-            <button onClick={() => onVerificar(pago.id)} style={btnGreen}>
-              ✅ Verificar
-            </button>
-            {rechazandoId === pago.id ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <input
-                  placeholder="Motivo del rechazo"
-                  value={motivoRechazo}
-                  onChange={e => setMotivoRechazo(e.target.value)}
-                  style={{ padding: 6, borderRadius: 6, border: "none", background: "#0f172a", color: "white", fontSize: 12, width: 180 }}
-                />
-                <div style={{ display: "flex", gap: 4 }}>
-                  <button onClick={() => onRechazar(pago.id)} style={btnRed}>Confirmar</button>
-                  <button onClick={() => { setRechazandoId(null); setMotivoRechazo(""); }} style={btnGray}>Cancelar</button>
-                </div>
-              </div>
-            ) : (
-              <button onClick={() => setRechazandoId(pago.id)} style={btnRed}>
-                ❌ Rechazar
-              </button>
-            )}
-          </div>
-        )}
-      </div>
     </div>
   );
 }
