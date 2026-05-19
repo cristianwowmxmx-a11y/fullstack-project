@@ -16,8 +16,13 @@ interface Pago {
   productos: string | null;
   celular: string | null;
   creadoEn: string;
-  clienteId: number | null;
-  pedidoId?: number; // si se asocia a un pedido en el futuro
+}
+
+interface Pedido {
+  id: number;
+  montoTotal: number;
+  montoPagado: number;
+  cliente: { nombreCompleto: string | null; nombres: string | null; apellidoPaterno: string | null };
 }
 
 function AdminPagos() {
@@ -34,7 +39,11 @@ function AdminPagos() {
   const [manualNombre, setManualNombre] = useState("");
   const [manualMonto, setManualMonto] = useState("");
   const [manualCelular, setManualCelular] = useState("");
+  const [manualPedidoId, setManualPedidoId] = useState("");
   const [agregandoManual, setAgregandoManual] = useState(false);
+
+  // Pedidos para selector
+  const [pedidos, setPedidos] = useState<Pedido[]>([]);
 
   const headers = {
     "Content-Type": "application/json",
@@ -43,8 +52,12 @@ function AdminPagos() {
 
   const load = async () => {
     setLoading(true);
-    const res = await fetch(`${API_URL}/pagos`, { headers });
-    if (res.ok) setPagos(await res.json());
+    const [pagosRes, pedidosRes] = await Promise.all([
+      fetch(`${API_URL}/pagos`, { headers }),
+      fetch(`${API_URL}/pedidos`, { headers }),
+    ]);
+    if (pagosRes.ok) setPagos(await pagosRes.json());
+    if (pedidosRes.ok) setPedidos(await pedidosRes.json());
     setLoading(false);
   };
 
@@ -54,7 +67,7 @@ function AdminPagos() {
     const res = await fetch(`${API_URL}/pagos/${id}/verificar`, { method: "PUT", headers });
     if (res.ok) {
       await load();
-      setSelected(null); // cerrar detalle si está abierto
+      setSelected(null);
     }
   };
 
@@ -76,18 +89,21 @@ function AdminPagos() {
   const agregarPagoManual = async () => {
     if (!manualNombre || !manualMonto) return;
     setAgregandoManual(true);
+    const body: any = {
+      nombreDeclarado: manualNombre,
+      monto: Number(manualMonto),
+      celular: manualCelular || null,
+      pedidoId: manualPedidoId ? Number(manualPedidoId) : null,
+    };
     await fetch(`${API_URL}/pagos/manual`, {
       method: "POST",
       headers,
-      body: JSON.stringify({
-        nombreDeclarado: manualNombre,
-        monto: Number(manualMonto),
-        celular: manualCelular || null,
-      }),
+      body: JSON.stringify(body),
     });
     setManualNombre("");
     setManualMonto("");
     setManualCelular("");
+    setManualPedidoId("");
     setAgregandoManual(false);
     await load();
   };
@@ -131,9 +147,17 @@ function AdminPagos() {
 
       {/* Formulario de pago manual */}
       <div style={{ background: "#1e293b", padding: 16, borderRadius: 12, marginBottom: 24, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-        <input placeholder="Nombre" value={manualNombre} onChange={e => setManualNombre(e.target.value)} style={{ padding: 8, borderRadius: 6, border: "none", background: "#0f172a", color: "white", fontSize: 13, flex: 1 }} />
-        <input placeholder="Monto" type="number" value={manualMonto} onChange={e => setManualMonto(e.target.value)} style={{ padding: 8, borderRadius: 6, border: "none", background: "#0f172a", color: "white", fontSize: 13, width: 100 }} />
-        <input placeholder="Celular (opcional)" value={manualCelular} onChange={e => setManualCelular(e.target.value)} style={{ padding: 8, borderRadius: 6, border: "none", background: "#0f172a", color: "white", fontSize: 13, width: 140 }} />
+        <input placeholder="Nombre" value={manualNombre} onChange={e => setManualNombre(e.target.value)} style={inputStyle} />
+        <input placeholder="Monto" type="number" value={manualMonto} onChange={e => setManualMonto(e.target.value)} style={{ ...inputStyle, width: 100 }} />
+        <input placeholder="Celular (opcional)" value={manualCelular} onChange={e => setManualCelular(e.target.value)} style={{ ...inputStyle, width: 140 }} />
+        <select value={manualPedidoId} onChange={e => setManualPedidoId(e.target.value)} style={{ ...inputStyle, width: 200, cursor: "pointer" }}>
+          <option value="">Sin pedido asociado</option>
+          {pedidos.map(p => (
+            <option key={p.id} value={p.id}>
+              Pedido #{p.id} — {p.cliente?.nombreCompleto || [p.cliente?.nombres, p.cliente?.apellidoPaterno].filter(Boolean).join(" ") || "Sin nombre"}
+            </option>
+          ))}
+        </select>
         <button onClick={agregarPagoManual} disabled={agregandoManual} style={{ ...btnGreen, fontSize: 13, padding: "8px 14px" }}>
           {agregandoManual ? "..." : "➕ Agregar pago manual"}
         </button>
@@ -293,5 +317,6 @@ function AdminPagos() {
 const btnGreen: React.CSSProperties = { background: "#22c55e", border: "none", padding: "8px 14px", borderRadius: 8, color: "white", fontWeight: "bold", cursor: "pointer", fontSize: 13 };
 const btnRed: React.CSSProperties = { background: "#ef4444", border: "none", padding: "8px 14px", borderRadius: 8, color: "white", fontWeight: "bold", cursor: "pointer", fontSize: 13 };
 const btnGray: React.CSSProperties = { background: "#334155", border: "none", padding: "8px 14px", borderRadius: 8, color: "white", fontWeight: "bold", cursor: "pointer", fontSize: 13 };
+const inputStyle: React.CSSProperties = { padding: 8, borderRadius: 6, border: "none", background: "#0f172a", color: "white", fontSize: 13, boxSizing: "border-box" };
 
 export default AdminPagos;
