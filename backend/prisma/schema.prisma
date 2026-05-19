@@ -7,8 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ─── MODELOS EXISTENTES (resumidos) ──────────────────────────────────────────
-
 model User {
   id       Int       @id @default(autoincrement())
   username String    @unique
@@ -64,6 +62,7 @@ model Magazine {
   cliente    Client?   @relation(fields: [clienteId], references: [id])
   articles   Article[]
   entregas   Entrega[]
+  ediciones  Edicion[]
 }
 
 model Article {
@@ -142,8 +141,6 @@ model Client {
   libroDetalles     LibroDetalle[]
   mensajes          Mensaje[]
   archivos          ClienteArchivo[]
-
-  // ─── NUEVAS RELACIONES ────────────────────────────────────────────────────
   pagos             Pago[]
   pedidos           Pedido[]
 }
@@ -171,20 +168,20 @@ model DayNote {
 }
 
 model LibroDetalle {
-  id         Int     @id @default(autoincrement())
-  clienteId  Int
+  id          Int    @id @default(autoincrement())
+  clienteId   Int
   numeroLibro Int
-  categoria  String
-  isbn       Boolean @default(false)
-  senapi     Boolean @default(false)
-  prioridad  String
-  cliente    Client  @relation(fields: [clienteId], references: [id])
+  categoria   String
+  isbn        Boolean @default(false)
+  senapi      Boolean @default(false)
+  prioridad   String
+  cliente     Client  @relation(fields: [clienteId], references: [id])
 }
 
 model Mensaje {
   id        Int      @id @default(autoincrement())
   clienteId Int
-  emisor    String   // "cliente" o "admin"
+  emisor    String
   texto     String
   leido     Boolean  @default(false)
   createdAt DateTime @default(now())
@@ -192,18 +189,16 @@ model Mensaje {
 }
 
 model ClienteArchivo {
-  id          Int      @id @default(autoincrement())
-  clienteId   Int
-  tipo        String   // "libro", "articulo", "director", "fundador"
+  id           Int      @id @default(autoincrement())
+  clienteId    Int
+  tipo         String
   referenciaId Int?
-  titulo      String?
-  notas       String?
-  archivoUrl  String?
-  createdAt   DateTime @default(now())
-  cliente     Client   @relation(fields: [clienteId], references: [id])
+  titulo       String?
+  notas        String?
+  archivoUrl   String?
+  createdAt    DateTime @default(now())
+  cliente      Client   @relation(fields: [clienteId], references: [id])
 }
-
-// ─── NUEVOS MODELOS ──────────────────────────────────────────────────────────
 
 model Producto {
   id          Int      @id @default(autoincrement())
@@ -220,13 +215,13 @@ model Pago {
   id              Int      @id @default(autoincrement())
   nombreDeclarado String
   monto           Float
-  tipo            String   // "imagen", "declarado", "manual"
+  tipo            String
   descripcion     String?
   imagenUrl       String?
   estado          String   @default("pendiente")
   motivoRechazo   String?
   productos       String?
-  celular         String?  // ← NUEVO
+  celular         String?
   creadoEn        DateTime @default(now())
   clienteId       Int?
   cliente         Client?  @relation(fields: [clienteId], references: [id])
@@ -235,7 +230,7 @@ model Pago {
 model Pedido {
   id            Int          @id @default(autoincrement())
   clienteId     Int
-  estado        String       @default("en proceso") // "en proceso", "completado", "rechazado"
+  estado        String       @default("en proceso")
   motivoRechazo String?
   montoTotal    Float        @default(0)
   montoPagado   Float        @default(0)
@@ -244,31 +239,41 @@ model Pedido {
   items         ItemPedido[]
 }
 
+model Edicion {
+  id         Int          @id @default(autoincrement())
+  numero     Int
+  magazineId Int
+  magazine   Magazine     @relation(fields: [magazineId], references: [id])
+  items      ItemPedido[]
+}
+
 model ItemPedido {
-  id                     Int             @id @default(autoincrement())
-  pedidoId               Int
-  tipo                   String          // "libroA", "libroB", "libroC", "director", "fundador", "autor"
-  titulo                 String?         // título del libro/revista/artículo
-  conSenapi              Boolean         @default(false)
-  conIsbn                Boolean         @default(false)
-  periodicidad           String?         // solo director: "3 meses", "1 mes", etc.
-  tipoAutor              String?         // solo autor: "soloTitulo" o "conContenido"
-  asociacionEncargaTitulo Boolean        @default(false) // solo fundador
-  notas                  String?
-  archivoWord            String?         // URL en Cloudinary
-  archivoPdf             String?         // URL en Cloudinary
-  estado                 String          @default("pendiente") // "pendiente", "en revision", "completado"
-  pedido                 Pedido          @relation(fields: [pedidoId], references: [id])
-  revisiones             RevisionItem[]
+  id                      Int            @id @default(autoincrement())
+  pedidoId                Int
+  tipo                    String
+  titulo                  String?
+  conSenapi               Boolean        @default(false)
+  conIsbn                 Boolean        @default(false)
+  periodicidad            String?
+  tipoAutor               String?
+  asociacionEncargaTitulo Boolean        @default(false)
+  notas                   String?
+  archivoWord             String?
+  archivoPdf              String?
+  estado                  String         @default("pendiente")
+  edicionId               Int?
+  edicion                 Edicion?       @relation(fields: [edicionId], references: [id])
+  pedido                  Pedido         @relation(fields: [pedidoId], references: [id])
+  revisiones              RevisionItem[]
 }
 
 model RevisionItem {
   id           Int        @id @default(autoincrement())
   itemPedidoId Int
-  ronda        Int        // número de ronda: 1, 2, 3...
-  autorTipo    String     // "admin" o "cliente"
-  nota         String?    // obligatorio para cliente, opcional para admin
-  archivos     String[]   // URLs de archivos subidos (varios)
+  ronda        Int
+  autorTipo    String
+  nota         String?
+  archivos     String[]
   creadoEn     DateTime   @default(now())
   item         ItemPedido @relation(fields: [itemPedidoId], references: [id])
 }

@@ -4,6 +4,12 @@ import { useWindowSize } from "../hooks/useWindowSize";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
+interface Edicion {
+  id: number;
+  numero: number;
+  magazine: { id: number; title: string };
+}
+
 interface RevisionItem {
   id: number;
   ronda: number;
@@ -26,6 +32,8 @@ interface ItemPedido {
   archivoWord: string | null;
   archivoPdf: string | null;
   estado: string;
+  edicionId: number | null;
+  edicion?: { id: number; numero: number; magazine: { id: number; title: string } } | null;
   revisiones: RevisionItem[];
 }
 
@@ -48,25 +56,35 @@ function AdminPedidos() {
   const [selected, setSelected] = useState<Pedido | null>(null);
   const [motivoRechazo, setMotivoRechazo] = useState("");
   const [rechazandoId, setRechazandoId] = useState<number | null>(null);
+  const [ediciones, setEdiciones] = useState<Edicion[]>([]);
 
   // Estados para subir avances
   const [notaAvance, setNotaAvance] = useState<Record<number, string>>({});
   const [archivosAvance, setArchivosAvance] = useState<Record<number, File[]>>({});
   const [subiendoAvance, setSubiendoAvance] = useState<number | null>(null);
 
+  // Estado para ajustar precio
+  const [editandoPrecio, setEditandoPrecio] = useState(false);
+  const [nuevoPrecio, setNuevoPrecio] = useState("");
+
   const headers = {
     "Content-Type": "application/json",
     Authorization: `Bearer ${token}`,
   };
 
-  const load = async () => {
+  const loadPedidos = async () => {
     setLoading(true);
     const res = await fetch(`${API_URL}/pedidos`, { headers });
     if (res.ok) setPedidos(await res.json());
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, []);
+  const loadEdiciones = async () => {
+    const res = await fetch(`${API_URL}/ediciones`, { headers });
+    if (res.ok) setEdiciones(await res.json());
+  };
+
+  useEffect(() => { loadPedidos(); loadEdiciones(); }, []);
 
   const rechazar = async (id: number) => {
     if (!motivoRechazo.trim()) return alert("Escribe el motivo del rechazo");
@@ -78,16 +96,46 @@ function AdminPedidos() {
     if (res.ok) {
       setMotivoRechazo("");
       setRechazandoId(null);
-      await load();
+      await loadPedidos();
     }
   };
 
   const completar = async (id: number) => {
     await fetch(`${API_URL}/pedidos/${id}/completar`, { method: "PUT", headers });
-    await load();
+    await loadPedidos();
   };
 
-  // Subir avance (admin)
+  const ajustarPrecio = async () => {
+    if (!selected || !nuevoPrecio) return;
+    const res = await fetch(`${API_URL}/pedidos/${selected.id}/ajustar-precio`, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify({ montoTotal: Number(nuevoPrecio) }),
+    });
+    if (res.ok) {
+      setSelected(prev => prev ? { ...prev, montoTotal: Number(nuevoPrecio) } : null);
+      setEditandoPrecio(false);
+      await loadPedidos();
+    } else alert("Error al ajustar precio");
+  };
+
+  const asignarRevista = async (itemId: number, edicionId: number) => {
+    const res = await fetch(`${API_URL}/items/${itemId}/asignar-revista`, {
+      method: "PUT",
+      headers,
+      body: JSON.stringify({ edicionId }),
+    });
+    if (res.ok) {
+      if (selected) {
+        const detalleRes = await fetch(`${API_URL}/pedidos/${selected.id}`, { headers });
+        if (detalleRes.ok) setSelected(await detalleRes.json());
+      }
+    } else {
+      const data = await res.json();
+      alert(data.error || "Error al asignar");
+    }
+  };
+
   const subirAvance = async (itemId: number) => {
     const nota = notaAvance[itemId]?.trim() || "";
     const archivos = archivosAvance[itemId] || [];
@@ -116,7 +164,6 @@ function AdminPedidos() {
     setSubiendoAvance(null);
   };
 
-  // Marcar ítem como completado
   const marcarCompletado = async (itemId: number) => {
     await fetch(`${API_URL}/items/${itemId}/completar`, { method: "PUT", headers });
     if (selected) {
@@ -173,8 +220,33 @@ function AdminPedidos() {
             </div>
           )}
 
+          {/* Ajustar precio */}
+          <div style={{ marginBottom: 16, background: "#0f172a", padding: 16, borderRadius: 10 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+              <span style={{ color: "#94a3b8", fontSize: 13 }}>
+                Monto total: <strong style={{ color: "#22c55e" }}>Bs {selected.montoTotal?.toFixed(2) || "0.00"}</strong>
+              </span>
+              {!editandoPrecio ? (
+                <button onClick={() => { setEditandoPrecio(true); setNuevoPrecio(String(selected.montoTotal)); }} style={{ ...btnBlue, fontSize: 12, padding: "4px 10px" }}>
+                  ✏️ Ajustar
+                </button>
+              ) : (
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <input
+                    type="number"
+                    value={nuevoPrecio}
+                    onChange={e => setNuevoPrecio(e.target.value)}
+                    style={{ width: 100, padding: 4, borderRadius: 4, border: "none", background: "#334155", color: "white", fontSize: 13 }}
+                  />
+                  <button onClick={ajustarPrecio} style={{ ...btnGreen, fontSize: 12, padding: "4px 10px" }}>Guardar</button>
+                  <button onClick={() => setEditandoPrecio(false)} style={{ ...btnGray, fontSize: 12, padding: "4px 10px" }}>Cancelar</button>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Barra de progreso de pago */}
-          <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 20 }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
               <span style={{ color: "#94a3b8", fontSize: 12 }}>Progreso de pago</span>
               <span style={{ color: "white", fontSize: 12, fontWeight: "bold" }}>
@@ -187,9 +259,6 @@ function AdminPedidos() {
                 height: "100%", background: "#22c55e", borderRadius: 99, transition: "width 0.4s ease",
               }} />
             </div>
-            <p style={{ color: "#64748b", fontSize: 11, marginTop: 4 }}>
-              {selected.montoTotal > 0 ? Math.round((selected.montoPagado / selected.montoTotal) * 100) : 0}% completado
-            </p>
           </div>
 
           {selected.estado === "en proceso" && (
@@ -228,6 +297,35 @@ function AdminPedidos() {
                   {item.periodicidad && <span style={badgeStyle}>{item.periodicidad}</span>}
                   {item.tipoAutor && <span style={badgeStyle}>{item.tipoAutor === "soloTitulo" ? "Solo título" : "Con contenido"}</span>}
                 </div>
+
+                {/* Selector de revista para artículos y fundadores */}
+                {(item.tipo === "autor" || item.tipo === "fundador") && (
+                  <div style={{ marginTop: 12, background: "#1e293b", padding: 10, borderRadius: 8 }}>
+                    <p style={{ color: "#94a3b8", fontSize: 11, marginBottom: 6 }}>Asignar a revista/edición</p>
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      <select
+                        value={item.edicionId || ""}
+                        onChange={e => {
+                          const val = e.target.value;
+                          if (val) asignarRevista(item.id, Number(val));
+                        }}
+                        style={{ flex: 1, padding: 6, borderRadius: 4, border: "none", background: "#334155", color: "white", fontSize: 12 }}
+                      >
+                        <option value="">-- Seleccionar --</option>
+                        {ediciones.map(ed => (
+                          <option key={ed.id} value={ed.id}>
+                            {ed.magazine.title} - Edición {ed.numero}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {item.edicion && (
+                      <p style={{ color: "#22c55e", fontSize: 11, marginTop: 4 }}>
+                        ✅ Asignado a: {item.edicion.magazine.title} (Ed. {item.edicion.numero})
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* Timeline de revisiones */}
                 {item.revisiones.length > 0 && (

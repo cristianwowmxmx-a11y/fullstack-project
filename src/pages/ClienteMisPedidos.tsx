@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useWindowSize } from "../hooks/useWindowSize";
 
@@ -25,7 +25,7 @@ interface ItemPedido {
   notas: string | null;
   archivoWord: string | null;
   archivoPdf: string | null;
-  estado: string;
+  estado: string; // "pendiente", "en revision", "completado"
   revisiones: RevisionItem[];
 }
 
@@ -46,10 +46,10 @@ function ClienteMisPedidos() {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Pedido | null>(null);
   const [observaciones, setObservaciones] = useState<Record<number, string>>({});
+  const [archivosObs, setArchivosObs] = useState<Record<number, File[]>>({});
   const [enviandoObs, setEnviandoObs] = useState<number | null>(null);
 
   const headers = {
-    "Content-Type": "application/json",
     Authorization: `Bearer ${token}`,
   };
 
@@ -69,15 +69,22 @@ function ClienteMisPedidos() {
 
   const enviarObservacion = async (itemId: number) => {
     const nota = observaciones[itemId]?.trim();
-    if (!nota) return alert("Escribe una observación");
+    const archivos = archivosObs[itemId] || [];
+    if (!nota && archivos.length === 0) return alert("Escribe una observación o adjunta un archivo");
+
     setEnviandoObs(itemId);
+    const formData = new FormData();
+    if (nota) formData.append("nota", nota);
+    archivos.forEach(file => formData.append("archivos", file));
+
     const res = await fetch(`${API_URL}/cliente/items/${itemId}/revision`, {
       method: "POST",
-      headers,
-      body: JSON.stringify({ nota }),
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
     });
     if (res.ok) {
       setObservaciones(prev => ({ ...prev, [itemId]: "" }));
+      setArchivosObs(prev => ({ ...prev, [itemId]: [] }));
       if (selected) await verDetalle(selected.id);
     } else {
       alert("Error al enviar observación");
@@ -86,9 +93,8 @@ function ClienteMisPedidos() {
   };
 
   const getEstadoColor = (estado: string) => {
-    if (estado === "en proceso") return { bg: "#1e3a5f", color: "#60a5fa" };
     if (estado === "completado") return { bg: "#14532d", color: "#22c55e" };
-    if (estado === "rechazado") return { bg: "#7f1d1d", color: "#ef4444" };
+    if (estado === "en revision") return { bg: "#1e3a5f", color: "#60a5fa" };
     return { bg: "#422006", color: "#f59e0b" };
   };
 
@@ -130,90 +136,99 @@ function ClienteMisPedidos() {
             </div>
           )}
 
-          {/* Barra de progreso de pago */}
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-              <span style={{ color: "#94a3b8", fontSize: 12 }}>Progreso de pago</span>
-              <span style={{ color: "white", fontSize: 12, fontWeight: "bold" }}>
-                Bs {selected.montoPagado?.toFixed(2) || "0.00"} / Bs {selected.montoTotal?.toFixed(2) || "0.00"}
-              </span>
-            </div>
-            <div style={{ background: "#334155", borderRadius: 99, height: 10, overflow: "hidden" }}>
+          {/* Saldo pendiente */}
+          <div style={{ marginBottom: 20, background: "#0f172a", padding: 16, borderRadius: 10 }}>
+            <p style={{ color: "#94a3b8", fontSize: 12, marginBottom: 8 }}>
+              💰 Saldo pendiente: <strong style={{ color: "#f59e0b" }}>Bs {(selected.montoTotal - selected.montoPagado).toFixed(2)}</strong>
+            </p>
+            <div style={{ background: "#334155", borderRadius: 99, height: 8, overflow: "hidden" }}>
               <div style={{
                 width: `${selected.montoTotal > 0 ? Math.round((selected.montoPagado / selected.montoTotal) * 100) : 0}%`,
                 height: "100%", background: "#22c55e", borderRadius: 99, transition: "width 0.4s ease",
               }} />
             </div>
-            <p style={{ color: "#64748b", fontSize: 11, marginTop: 4 }}>
-              {selected.montoTotal > 0 ? Math.round((selected.montoPagado / selected.montoTotal) * 100) : 0}% completado
-            </p>
           </div>
 
           <h3 style={{ marginBottom: 16, color: "#94a3b8", fontSize: 13, textTransform: "uppercase" }}>Ítems del pedido</h3>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {selected.items.map(item => (
-              <div key={item.id} style={{ background: "#0f172a", padding: 16, borderRadius: 10, borderLeft: "4px solid #3b82f6" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                  <span style={{ color: "#60a5fa", fontWeight: "bold" }}>{getTipoLabel(item.tipo)}</span>
-                  <span style={{ color: "#64748b", fontSize: 12 }}>{item.estado}</span>
-                </div>
-                {item.titulo && <p style={{ color: "white", marginBottom: 4 }}>📌 {item.titulo}</p>}
-                {item.notas && <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 4 }}>📝 {item.notas}</p>}
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
-                  {item.conSenapi && <span style={badgeStyle}>SENAPI</span>}
-                  {item.conIsbn && <span style={badgeStyle}>ISBN</span>}
-                  {item.periodicidad && <span style={badgeStyle}>{item.periodicidad}</span>}
-                  {item.tipoAutor && <span style={badgeStyle}>{item.tipoAutor === "soloTitulo" ? "Solo título" : "Con contenido"}</span>}
-                </div>
+            {selected.items.map(item => {
+              const sc = getEstadoColor(item.estado);
+              return (
+                <div key={item.id} style={{ background: "#0f172a", padding: 16, borderRadius: 10, borderLeft: `4px solid ${sc.color}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                    <span style={{ color: "#60a5fa", fontWeight: "bold" }}>{getTipoLabel(item.tipo)}</span>
+                    <span style={{
+                      fontSize: 11, padding: "2px 10px", borderRadius: 99,
+                      background: sc.bg, color: sc.color, fontWeight: "bold",
+                    }}>
+                      {item.estado}
+                    </span>
+                  </div>
+                  {item.titulo && <p style={{ color: "white", marginBottom: 4 }}>📌 {item.titulo}</p>}
+                  {item.notas && <p style={{ color: "#94a3b8", fontSize: 13, marginBottom: 4 }}>📝 {item.notas}</p>}
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                    {item.conSenapi && <span style={badgeStyle}>SENAPI</span>}
+                    {item.conIsbn && <span style={badgeStyle}>ISBN</span>}
+                    {item.periodicidad && <span style={badgeStyle}>{item.periodicidad}</span>}
+                    {item.tipoAutor && <span style={badgeStyle}>{item.tipoAutor === "soloTitulo" ? "Solo título" : "Con contenido"}</span>}
+                    {item.asociacionEncargaTitulo && <span style={badgeStyle}>Título por asociación</span>}
+                  </div>
 
-                {/* Timeline de revisiones */}
-                {item.revisiones.length > 0 && (
-                  <div style={{ marginTop: 12, borderTop: "1px solid #334155", paddingTop: 12 }}>
-                    <p style={{ color: "#64748b", fontSize: 11, marginBottom: 8, textTransform: "uppercase" }}>Historial de revisiones</p>
-                    {item.revisiones.map(rev => (
-                      <div key={rev.id} style={{ marginBottom: 10, paddingLeft: 12, borderLeft: "2px solid #334155" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                          <span style={{ color: rev.autorTipo === "admin" ? "#60a5fa" : "#a78bfa", fontSize: 12, fontWeight: "bold" }}>
-                            {rev.autorTipo === "admin" ? "🔵 Asociación" : "🟣 Tú"} — Ronda {rev.ronda}
-                          </span>
-                          <span style={{ color: "#64748b", fontSize: 11 }}>{new Date(rev.creadoEn).toLocaleDateString()}</span>
-                        </div>
-                        {rev.nota && <p style={{ color: "#94a3b8", fontSize: 12, marginBottom: 4 }}>{rev.nota}</p>}
-                        {rev.archivos.length > 0 && (
-                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                            {rev.archivos.map((url, i) => (
-                              <a key={i} href={url} target="_blank" rel="noreferrer" style={{ color: "#60a5fa", fontSize: 11, textDecoration: "underline" }}>
-                                📎 Archivo {i + 1}
-                              </a>
-                            ))}
+                  {/* Timeline de revisiones */}
+                  {item.revisiones.length > 0 && (
+                    <div style={{ marginTop: 12, borderTop: "1px solid #334155", paddingTop: 12 }}>
+                      <p style={{ color: "#64748b", fontSize: 11, marginBottom: 8, textTransform: "uppercase" }}>Historial de revisiones</p>
+                      {item.revisiones.map(rev => (
+                        <div key={rev.id} style={{ marginBottom: 10, paddingLeft: 12, borderLeft: "2px solid #334155" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                            <span style={{ color: rev.autorTipo === "admin" ? "#60a5fa" : "#a78bfa", fontSize: 12, fontWeight: "bold" }}>
+                              {rev.autorTipo === "admin" ? "🔵 Asociación" : "🟣 Tú"} — Ronda {rev.ronda}
+                            </span>
+                            <span style={{ color: "#64748b", fontSize: 11 }}>{new Date(rev.creadoEn).toLocaleDateString()}</span>
                           </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
+                          {rev.nota && <p style={{ color: "#94a3b8", fontSize: 12, marginBottom: 4 }}>{rev.nota}</p>}
+                          {rev.archivos.length > 0 && (
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                              {rev.archivos.map((url, i) => (
+                                <a key={i} href={url} target="_blank" rel="noreferrer" style={{ color: "#60a5fa", fontSize: 11, textDecoration: "underline" }}>
+                                  📎 Archivo {i + 1}
+                                </a>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
-                {/* Enviar observación */}
-                {item.estado !== "completado" && (
-                  <div style={{ marginTop: 12, borderTop: "1px solid #334155", paddingTop: 12 }}>
-                    <textarea
-                      placeholder="Escribe tu observación..."
-                      value={observaciones[item.id] || ""}
-                      onChange={e => setObservaciones(prev => ({ ...prev, [item.id]: e.target.value }))}
-                      rows={2}
-                      style={{ width: "100%", padding: 8, borderRadius: 6, border: "none", background: "#1e293b", color: "white", fontSize: 12, resize: "none", boxSizing: "border-box" }}
-                    />
-                    <button
-                      onClick={() => enviarObservacion(item.id)}
-                      disabled={enviandoObs === item.id}
-                      style={{ ...btnBlue, marginTop: 6, fontSize: 12, padding: "6px 12px" }}
-                    >
-                      {enviandoObs === item.id ? "Enviando..." : "📤 Enviar observación"}
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
+                  {/* Enviar observación (solo si no está completado) */}
+                  {item.estado !== "completado" && (
+                    <div style={{ marginTop: 12, borderTop: "1px solid #334155", paddingTop: 12 }}>
+                      <textarea
+                        placeholder="Escribe tu observación..."
+                        value={observaciones[item.id] || ""}
+                        onChange={e => setObservaciones(prev => ({ ...prev, [item.id]: e.target.value }))}
+                        rows={2}
+                        style={{ width: "100%", padding: 8, borderRadius: 6, border: "none", background: "#1e293b", color: "white", fontSize: 12, resize: "none", boxSizing: "border-box", marginBottom: 6 }}
+                      />
+                      <input
+                        type="file"
+                        multiple
+                        onChange={e => setArchivosObs(prev => ({ ...prev, [item.id]: Array.from(e.target.files || []) }))}
+                        style={{ color: "white", fontSize: 11, marginBottom: 6 }}
+                      />
+                      <button
+                        onClick={() => enviarObservacion(item.id)}
+                        disabled={enviandoObs === item.id}
+                        style={{ ...btnBlue, marginTop: 6, fontSize: 12, padding: "6px 12px" }}
+                      >
+                        {enviandoObs === item.id ? "Enviando..." : "📤 Enviar observación"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -250,6 +265,9 @@ function ClienteMisPedidos() {
                     </p>
                     <p style={{ color: "#94a3b8", fontSize: 12, marginTop: 4 }}>
                       {p.items.length} ítems · {new Date(p.creadoEn).toLocaleDateString()}
+                    </p>
+                    <p style={{ color: "#f59e0b", fontSize: 12 }}>
+                      Saldo pendiente: Bs {(p.montoTotal - p.montoPagado).toFixed(2)}
                     </p>
                   </div>
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>

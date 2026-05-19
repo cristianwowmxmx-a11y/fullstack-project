@@ -4,16 +4,23 @@ import { useWindowSize } from "../hooks/useWindowSize";
 import { useMesActual } from "../hooks/useMesActual";
 import NavegadorMes from "../components/NavegadorMes";
 
-const API_URL = "https://taskmanager-backend-ewud.onrender.com";
+const API_URL = import.meta.env.VITE_API_URL;
 
 interface Person { id: number; name: string; }
 interface Article { id: number; title: string; authors: Person[]; }
 interface Cliente { id: number; nombreCompleto: string | null; }
+interface Edicion {
+  id: number;
+  numero: number;
+  items: { id: number; titulo: string | null; pedido: { cliente: { nombreCompleto: string | null; nombres: string | null; apellidoPaterno: string | null } } }[];
+}
+
 interface Magazine {
   id: number; title: string; director: Person;
   articles: Article[]; notas: string | null;
   cliente: Cliente | null; createdAt: string;
   archivoUrl: string | null;
+  ediciones: Edicion[];
 }
 
 function Spinner() {
@@ -45,6 +52,7 @@ function Magazines() {
   const { token } = useAuth();
   const { isMobile } = useWindowSize();
   const { mesLabel, anio, anterior, siguiente, esActual, filtrarPorMes } = useMesActual();
+
   const [magazines, setMagazines] = useState<Magazine[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [open, setOpen] = useState(false);
@@ -62,7 +70,7 @@ function Magazines() {
   const [directorName, setDirectorName] = useState("");
   const [notas, setNotas] = useState("");
   const [clienteId, setClienteId] = useState("");
-  const [editArticles, setEditArticles] = useState<{ id?: number; author: string; title: string; isNew?: boolean; isDeleted?: boolean; }[]>([{ author: "", title: "", isNew: true }]);
+  const [editArticles, setEditArticles] = useState<{ id?: number; author: string; title: string; isNew?: boolean; isDeleted?: boolean }[]>([{ author: "", title: "", isNew: true }]);
   const [newAuthor, setNewAuthor] = useState("");
   const [newArticle, setNewArticle] = useState("");
   const [subiendoId, setSubiendoId] = useState<number | null>(null);
@@ -78,8 +86,8 @@ function Magazines() {
       fetch(`${API_URL}/magazines`, { headers }),
       fetch(`${API_URL}/clients`, { headers }),
     ]);
-    setMagazines(await mRes.json());
-    setClientes(await cRes.json());
+    if (mRes.ok) setMagazines(await mRes.json());
+    if (cRes.ok) setClientes(await cRes.json());
     setLoadingMags(false);
   };
 
@@ -109,6 +117,7 @@ function Magazines() {
           else if (!a.isNew && !a.isDeleted && a.id) await fetch(`${API_URL}/articles/${a.id}`, { method: "PUT", headers, body: JSON.stringify({ title: a.title, authorName: a.author }) });
         }
       } else {
+        // Crear revista (las 3 ediciones se crean en el backend automáticamente)
         const d = await fetch(`${API_URL}/persons`, { method: "POST", headers, body: JSON.stringify({ name: directorName }) }).then(r => r.json());
         const m = await fetch(`${API_URL}/magazines`, { method: "POST", headers, body: JSON.stringify({ title, directorId: d.id, notas, clienteId: clienteId ? Number(clienteId) : null }) }).then(r => r.json());
         for (const a of editArticles) {
@@ -155,25 +164,19 @@ function Magazines() {
     });
   };
 
-const subirArchivo = async (magId: number, file: File) => {
-  setSubiendoId(magId);
-  try {
-    const formData = new FormData();
-    formData.append("archivo", file);
-    await fetch(`${API_URL}/magazines/${magId}/archivo`, {
-      method: "POST",
-      headers: headersAuth,
-      body: formData,
-    });
-    const res = await fetch(`${API_URL}/magazines`, { headers });
-    const data = await res.json();
-    setMagazines(data);
-    const magActualizada = data.find((m: Magazine) => m.id === magId);
-    if (magActualizada) setSelected(magActualizada);
-  } finally {
-    setSubiendoId(null);
-  }
-};
+  const subirArchivo = async (magId: number, file: File) => {
+    setSubiendoId(magId);
+    try {
+      const formData = new FormData();
+      formData.append("archivo", file);
+      await fetch(`${API_URL}/magazines/${magId}/archivo`, { method: "POST", headers: headersAuth, body: formData });
+      const res = await fetch(`${API_URL}/magazines`, { headers });
+      const data = await res.json();
+      setMagazines(data);
+      const magActualizada = data.find((m: Magazine) => m.id === magId);
+      if (magActualizada) setSelected(magActualizada);
+    } finally { setSubiendoId(null); }
+  };
 
   const clientesDirector = clientes.filter((c: any) => c.pideDirector);
 
@@ -188,27 +191,42 @@ const subirArchivo = async (magId: number, file: File) => {
       {selected ? (
         <div>
           <button onClick={() => setSelected(null)} style={btnGray}>← Volver</button>
+
           <div style={{ background: "#1e293b", padding: isMobile ? 16 : 24, borderRadius: 14, marginTop: 20 }}>
             <h2 style={{ marginBottom: 6, fontSize: isMobile ? 18 : 24 }}>{selected.title}</h2>
             <p style={{ color: "#94a3b8", marginBottom: 4 }}>Director: {selected.director?.name}</p>
             {selected.cliente && <div style={{ display: "inline-block", background: "#312e81", color: "#a78bfa", padding: "3px 12px", borderRadius: 99, fontSize: 12, marginBottom: 12 }}>👤 {selected.cliente.nombreCompleto}</div>}
             {selected.notas && <div style={{ background: "#0f172a", padding: 14, borderRadius: 10, marginBottom: 16, borderLeft: "4px solid #f59e0b" }}><p style={{ color: "#64748b", fontSize: 11, marginBottom: 4, textTransform: "uppercase" }}>Notas</p><p style={{ color: "white", fontSize: 14 }}>{selected.notas}</p></div>}
 
-            {/* ARCHIVO EN DETALLE */}
+            {/* Ediciones */}
+            <h3 style={{ marginTop: 20, marginBottom: 12 }}>Ediciones ({selected.ediciones?.length || 0})</h3>
+            {selected.ediciones?.length === 0 && <p style={{ color: "#64748b", marginBottom: 16 }}>No hay ediciones generadas.</p>}
+            {selected.ediciones?.map(ed => (
+              <div key={ed.id} style={{ background: "#0f172a", padding: 14, borderRadius: 10, marginBottom: 10 }}>
+                <p style={{ color: "white", fontWeight: "bold" }}>Edición {ed.numero}</p>
+                {ed.items.length === 0 ? (
+                  <p style={{ color: "#64748b", fontSize: 12 }}>Sin artículos asignados.</p>
+                ) : (
+                  ed.items.map(item => (
+                    <div key={item.id} style={{ padding: "4px 0", borderBottom: "1px solid #1e293b", color: "#94a3b8", fontSize: 12 }}>
+                      📝 {item.titulo || "Sin título"} — {item.pedido.cliente?.nombreCompleto || [item.pedido.cliente?.nombres, item.pedido.cliente?.apellidoPaterno].filter(Boolean).join(" ") || "Autor desconocido"}
+                    </div>
+                  ))
+                )}
+              </div>
+            ))}
+
+            {/* Archivo */}
             <div style={{ background: "#0f172a", padding: 16, borderRadius: 10, marginBottom: 20 }}>
               <p style={{ color: "#64748b", fontSize: 12, marginBottom: 10, textTransform: "uppercase", letterSpacing: 1 }}>📎 Archivo de la Revista</p>
               {selected.archivoUrl ? (
                 <div>
-             <p style={{ color: "#22c55e", fontSize: 13, marginBottom: 8 }}>✅ Archivo subido</p>
+                  <p style={{ color: "#22c55e", fontSize: 13, marginBottom: 8 }}>✅ Archivo subido</p>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    <a href={selected.archivoUrl} target="_blank" rel="noreferrer"
-                      style={{ background: "#22c55e", border: "none", padding: "8px 16px", borderRadius: 8, color: "white", cursor: "pointer", fontWeight: "bold", fontSize: 13, textDecoration: "none" }}>
-                      📥 Descargar
-                    </a>
+                    <a href={selected.archivoUrl} target="_blank" rel="noreferrer" style={{ background: "#22c55e", border: "none", padding: "8px 16px", borderRadius: 8, color: "white", cursor: "pointer", fontWeight: "bold", fontSize: 13, textDecoration: "none" }}>📥 Descargar</a>
                     <label style={{ background: "#334155", border: "none", padding: "8px 16px", borderRadius: 8, color: "white", cursor: "pointer", fontWeight: "bold", fontSize: 13 }}>
                       🔄 Reemplazar
-                      <input type="file" accept=".pdf,.pub,.docx" style={{ display: "none" }}
-                        onChange={(e) => { const f = e.target.files?.[0]; if (f) subirArchivo(selected.id, f); }} />
+                      <input type="file" accept=".pdf,.pub,.docx" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) subirArchivo(selected.id, f); }} />
                     </label>
                   </div>
                 </div>
@@ -217,8 +235,7 @@ const subirArchivo = async (magId: number, file: File) => {
                   <p style={{ color: "#64748b", fontSize: 13, marginBottom: 8 }}>Sin archivo final todavía.</p>
                   <label style={{ background: "#3b82f6", border: "none", padding: "8px 16px", borderRadius: 8, color: "white", cursor: "pointer", fontWeight: "bold", fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 }}>
                     {subiendoId === selected.id ? <><Spinner /> Subiendo...</> : "📤 Subir archivo"}
-                    <input type="file" accept=".pdf,.pub,.docx" style={{ display: "none" }}
-                      onChange={(e) => { const f = e.target.files?.[0]; if (f) subirArchivo(selected.id, f); }} />
+                    <input type="file" accept=".pdf,.pub,.docx" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) subirArchivo(selected.id, f); }} />
                   </label>
                 </div>
               )}
@@ -270,63 +287,23 @@ const subirArchivo = async (magId: number, file: File) => {
                   <p style={{ color: "#64748b", fontSize: 13, marginBottom: 8 }}>{m.articles.length} artículo(s)</p>
                   {m.notas && <p style={{ color: "#f59e0b", fontSize: 12, marginBottom: 8, background: "#422006", padding: "4px 10px", borderRadius: 6 }}>📝 {m.notas.length > 50 ? m.notas.substring(0, 50) + "..." : m.notas}</p>}
 
-                 
-                 {/* ARCHIVO EN TARJETA */}
-<div style={{ background: "#0f172a", padding: 10, borderRadius: 8, marginBottom: 10 }}>
-  {m.archivoUrl ? (
-    <div>
-      <p style={{ color: "#22c55e", fontSize: 12, marginBottom: 8 }}>✅ Archivo subido</p>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <a
-          href={m.archivoUrl?.replace("/upload/", "/upload/fl_attachment/")}
-          target="_blank"
-          rel="noreferrer"
-          style={{
-            background: "#22c55e",
-            border: "none",
-            padding: "5px 10px",
-            borderRadius: 6,
-            color: "white",
-            cursor: "pointer",
-            fontWeight: "bold",
-            fontSize: 11,
-            textDecoration: "none",
-          }}
-        >
-          📥 Descargar
-        </a>
-
-        <label
-          style={{
-            background: "#334155",
-            border: "none",
-            padding: "5px 10px",
-            borderRadius: 6,
-            color: "white",
-            cursor: "pointer",
-            fontWeight: "bold",
-            fontSize: 11,
-          }}
-        >
-          🔄 Reemplazar
-          <input
-            type="file"
-            accept=".pdf,.pub,.docx"
-            style={{ display: "none" }}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) subirArchivo(m.id, f);
-            }}
-          />
-        </label>
-      </div>
-    </div>
-  ) : (
-                    
+                  {/* Archivo en tarjeta */}
+                  <div style={{ background: "#0f172a", padding: 10, borderRadius: 8, marginBottom: 10 }}>
+                    {m.archivoUrl ? (
+                      <div>
+                        <p style={{ color: "#22c55e", fontSize: 12, marginBottom: 8 }}>✅ Archivo subido</p>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                          <a href={m.archivoUrl?.replace("/upload/", "/upload/fl_attachment/")} target="_blank" rel="noreferrer" style={{ background: "#22c55e", border: "none", padding: "5px 10px", borderRadius: 6, color: "white", cursor: "pointer", fontWeight: "bold", fontSize: 11, textDecoration: "none" }}>📥 Descargar</a>
+                          <label style={{ background: "#334155", border: "none", padding: "5px 10px", borderRadius: 6, color: "white", cursor: "pointer", fontWeight: "bold", fontSize: 11 }}>
+                            🔄 Reemplazar
+                            <input type="file" accept=".pdf,.pub,.docx" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) subirArchivo(m.id, f); }} />
+                          </label>
+                        </div>
+                      </div>
+                    ) : (
                       <label style={{ background: "#3b82f6", border: "none", padding: "5px 10px", borderRadius: 6, color: "white", cursor: "pointer", fontWeight: "bold", fontSize: 11, display: "inline-flex", alignItems: "center", gap: 6 }}>
                         {subiendoId === m.id ? <><Spinner /> Subiendo...</> : "📤 Subir archivo"}
-                        <input type="file" accept=".pdf,.pub,.docx" style={{ display: "none" }}
-                          onChange={(e) => { const f = e.target.files?.[0]; if (f) subirArchivo(m.id, f); }} />
+                        <input type="file" accept=".pdf,.pub,.docx" style={{ display: "none" }} onChange={(e) => { const f = e.target.files?.[0]; if (f) subirArchivo(m.id, f); }} />
                       </label>
                     )}
                   </div>
@@ -349,19 +326,15 @@ const subirArchivo = async (magId: number, file: File) => {
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", justifyContent: "center", alignItems: "center", zIndex: 999, padding: "20px" }}>
           <div style={{ background: "#1e293b", padding: isMobile ? 20 : 28, borderRadius: 14, width: "100%", maxWidth: 560, color: "white", maxHeight: "85vh", overflowY: "auto" }}>
             <h3 style={{ marginBottom: 16 }}>{editId ? "Editar revista" : "Crear revista"}</h3>
-
             <label style={labelStyle}>Título</label>
             <input placeholder="Título" value={title} onChange={e => setTitle(e.target.value)} style={inputStyle} />
-
             <label style={labelStyle}>Director</label>
             <input placeholder="Nombre del director" value={directorName} onChange={e => setDirectorName(e.target.value)} style={inputStyle} />
-
             <label style={labelStyle}>Vincular con cliente (opcional)</label>
             <select value={clienteId} onChange={e => { setClienteId(e.target.value); const c = clientesDirector.find(c => c.id.toString() === e.target.value); if (c) setDirectorName((c as any).nombreCompleto || ""); }} style={{ ...inputStyle, cursor: "pointer" }}>
               <option value="">-- Sin vincular --</option>
               {clientesDirector.map(c => <option key={c.id} value={c.id}>{c.nombreCompleto || "Sin nombre"}</option>)}
             </select>
-
             <label style={labelStyle}>Notas (opcional)</label>
             <textarea placeholder="Notas sobre esta revista..." value={notas} onChange={e => setNotas(e.target.value)} rows={3} style={{ ...inputStyle, resize: "none" }} />
 
@@ -369,7 +342,6 @@ const subirArchivo = async (magId: number, file: File) => {
               <label style={labelStyle}>Artículos</label>
               <button onClick={addArticleRow} style={btnGray}>➕ Añadir</button>
             </div>
-
             {editArticles.map((a, i) => (
               !a.isDeleted ? (
                 <div key={i} style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 8, marginBottom: 8, alignItems: isMobile ? "stretch" : "center" }}>
@@ -384,7 +356,6 @@ const subirArchivo = async (magId: number, file: File) => {
                 </div>
               )
             ))}
-
             <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
               <button onClick={save} disabled={saving} style={{ ...btnBlue, display: "flex", alignItems: "center", gap: 8, opacity: saving ? 0.7 : 1, minWidth: 110, justifyContent: "center", cursor: saving ? "not-allowed" : "pointer" }}>
                 {saving ? <Spinner /> : "💾 Guardar"}

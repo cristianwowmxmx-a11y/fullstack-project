@@ -72,7 +72,6 @@ const authCliente = (req: any, res: any, next: any) => {
 app.post("/login", async (req, res) => {
   const { username, password } = req.body;
 
-  // 1. Intentar como admin (tabla User)
   const user = await prisma.user.findUnique({ where: { username } });
   if (user && user.password === password) {
     const token = jwt.sign(
@@ -83,7 +82,6 @@ app.post("/login", async (req, res) => {
     return res.json({ token, username: user.username, role: "admin" });
   }
 
-  // 2. Intentar como cliente (tabla Client)
   const client = await prisma.client.findFirst({
     where: { clientUsername: username },
   });
@@ -110,7 +108,6 @@ app.post("/login", async (req, res) => {
     });
   }
 
-  // 3. Ninguno coincide
   return res.status(401).json({ error: "Credenciales incorrectas" });
 });
 
@@ -195,32 +192,48 @@ app.delete("/persons/:id", auth, async (req, res) => {
 app.get("/magazines", async (req, res) => {
   res.json(
     await prisma.magazine.findMany({
-      include: { director: true, articles: { include: { authors: true } }, cliente: true },
+      include: {
+        director: true,
+        articles: { include: { authors: true } },
+        cliente: true,
+        ediciones: { include: { items: true } },
+      },
     })
   );
 });
+
 app.get("/magazines/:id", auth, async (req, res) => {
   res.json(
     await prisma.magazine.findUnique({
       where: { id: Number(req.params.id) },
-      include: { director: true, articles: { include: { authors: true } }, cliente: true },
+      include: {
+        director: true,
+        articles: { include: { authors: true } },
+        cliente: true,
+        ediciones: { include: { items: true } },
+      },
     })
   );
 });
+
 app.post("/magazines", auth, async (req, res) => {
   const { title, directorId, notas, clienteId } = req.body;
-  res.json(
-    await prisma.magazine.create({
-      data: {
-        title,
-        directorId,
-        notas: notas || null,
-        clienteId: clienteId ? Number(clienteId) : null,
-      },
-      include: { director: true, cliente: true },
-    })
-  );
+  const magazine = await prisma.magazine.create({
+    data: {
+      title,
+      directorId,
+      notas: notas || null,
+      clienteId: clienteId ? Number(clienteId) : null,
+    },
+    include: { director: true, cliente: true },
+  });
+  // Crear 3 ediciones automáticamente
+  for (let i = 1; i <= 3; i++) {
+    await prisma.edicion.create({ data: { numero: i, magazineId: magazine.id } });
+  }
+  res.json(magazine);
 });
+
 app.post("/magazines/:id/archivo", auth, upload.single("archivo"), async (req: any, res: any) => {
   try {
     if (!req.file) return res.status(400).json({ error: "Archivo requerido" });
@@ -237,6 +250,7 @@ app.post("/magazines/:id/archivo", auth, upload.single("archivo"), async (req: a
     res.status(500).json({ error: "Error al subir archivo" });
   }
 });
+
 app.put("/magazines/:id", auth, async (req, res) => {
   const { title, directorName, notas, clienteId } = req.body;
   let director = await prisma.person.findFirst({ where: { name: directorName } });
@@ -254,11 +268,21 @@ app.put("/magazines/:id", auth, async (req, res) => {
     })
   );
 });
+
 app.delete("/magazines/:id", auth, async (req, res) => {
   const id = Number(req.params.id);
   await prisma.article.deleteMany({ where: { magazineId: id } });
   await prisma.magazine.delete({ where: { id } });
   res.json({ ok: true });
+});
+
+// ─── EDICIONES ────────────────────────────────────────────────────────────────
+app.get("/ediciones", auth, async (req, res) => {
+  const ediciones = await prisma.edicion.findMany({
+    include: { magazine: { select: { id: true, title: true } } },
+    orderBy: [{ magazine: { title: "asc" } }, { numero: "asc" }],
+  });
+  res.json(ediciones);
 });
 
 // ─── ARTICLES ─────────────────────────────────────────────────────────────────
@@ -367,7 +391,7 @@ app.delete("/projects/:id", auth, async (req, res) => {
   res.json({ ok: true });
 });
 
-// ─── CATÁLOGO DE PRODUCTOS ──────────────────────────────────────────────────
+// ─── CATÁLOGO DE PRODUCTOS ───────────────────────────────────────────────────
 app.get("/productos", async (req, res) => {
   res.json(await prisma.producto.findMany({ where: { activo: true } }));
 });
@@ -382,9 +406,17 @@ app.post("/productos", auth, upload.single("imagen"), async (req: any, res) => {
   if (req.file) {
     imagenUrl = await subirImagen(req.file.buffer, "productos", "image");
   }
-  res.json(await prisma.producto.create({
-    data: { nombre, descripcion, precio: Number(precio), descuento: descuento ? Number(descuento) : 0, imagenUrl },
-  }));
+  res.json(
+    await prisma.producto.create({
+      data: {
+        nombre,
+        descripcion,
+        precio: Number(precio),
+        descuento: descuento ? Number(descuento) : 0,
+        imagenUrl,
+      },
+    })
+  );
 });
 
 app.put("/productos/:id", auth, upload.single("imagen"), async (req: any, res) => {
@@ -428,7 +460,6 @@ app.post("/pagos", upload.single("comprobante"), async (req: any, res) => {
       celular: celular || null,
     },
   });
-  // Notificar al admin por WhatsApp
   try {
     const { notificarAdminMensaje } = await import("./whatsapp");
     await notificarAdminMensaje(`Nuevo pago pendiente de ${nombreDeclarado} por Bs ${monto}`);
@@ -473,9 +504,9 @@ app.put("/pagos/:id/verificar", auth, async (req, res) => {
     data: { estado: "verificado" },
   });
 
-  // Crear cliente si no existe y generar link de formulario
   if (!pago.clienteId) {
-    const token = Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
+    const token =
+      Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2);
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 4);
     const cliente = await prisma.client.create({
@@ -483,12 +514,13 @@ app.put("/pagos/:id/verificar", auth, async (req, res) => {
     });
     await prisma.pago.update({ where: { id }, data: { clienteId: cliente.id } });
 
-    // Enviar link al cliente
     const LINK_PORTAL = process.env.CLIENT_PORTAL_URL || "https://tudominio.com";
     const linkFormulario = `${LINK_PORTAL}/formulario/${token}`;
     try {
       const { notificarAdminMensaje } = await import("./whatsapp");
-      await notificarAdminMensaje(`Pago verificado para ${pago.nombreDeclarado}. Link del formulario: ${linkFormulario}`);
+      await notificarAdminMensaje(
+        `Pago verificado para ${pago.nombreDeclarado}. Link del formulario: ${linkFormulario}`
+      );
     } catch (err) {
       console.warn("No se pudo notificar:", err);
     }
@@ -500,10 +532,12 @@ app.put("/pagos/:id/verificar", auth, async (req, res) => {
 app.put("/pagos/:id/rechazar", auth, async (req, res) => {
   const id = Number(req.params.id);
   const { motivoRechazo } = req.body;
-  res.json(await prisma.pago.update({
-    where: { id },
-    data: { estado: "rechazado", motivoRechazo },
-  }));
+  res.json(
+    await prisma.pago.update({
+      where: { id },
+      data: { estado: "rechazado", motivoRechazo },
+    })
+  );
 });
 
 // ─── CLIENTS ──────────────────────────────────────────────────────────────────
@@ -516,7 +550,8 @@ app.get("/clients/form/:token", async (req, res) => {
     where: { token: req.params.token },
   });
   if (!client) return res.status(404).json({ error: "Link no válido" });
-  if (new Date() > client.expiresAt) return res.status(410).json({ error: "Este link ha expirado" });
+  if (new Date() > client.expiresAt)
+    return res.status(410).json({ error: "Este link ha expirado" });
   res.json(client);
 });
 
@@ -532,32 +567,41 @@ app.post("/clients", auth, async (req, res) => {
   );
 });
 
-// Subida de fotos (sin autenticación)
 app.post(
   "/clients/form/:token/fotos",
   upload.fields([
     { name: "fotografia", maxCount: 1 },
     { name: "fotoCarnet", maxCount: 1 },
-     { name: "fotoCarnet2", maxCount: 1 },
+    { name: "fotoCarnet2", maxCount: 1 },
   ]),
   async (req: any, res: any) => {
     const client = await prisma.client.findUnique({
       where: { token: req.params.token },
     });
     if (!client) return res.status(404).json({ error: "Link no válido" });
-    if (new Date() > client.expiresAt) return res.status(410).json({ error: "Link expirado" });
+    if (new Date() > client.expiresAt)
+      return res.status(410).json({ error: "Link expirado" });
 
     const files = req.files as Record<string, Express.Multer.File[]>;
     const data: any = {};
 
     if (files?.fotografia?.[0]) {
-      data.fotografia = await subirImagen(files.fotografia[0].buffer, "clientes/fotografias");
+      data.fotografia = await subirImagen(
+        files.fotografia[0].buffer,
+        "clientes/fotografias"
+      );
     }
     if (files?.fotoCarnet?.[0]) {
-      data.fotoCarnet = await subirImagen(files.fotoCarnet[0].buffer, "clientes/carnets");
+      data.fotoCarnet = await subirImagen(
+        files.fotoCarnet[0].buffer,
+        "clientes/carnets"
+      );
     }
-     if (files?.fotoCarnet2?.[0]) {
-      data.fotoCarnet2 = await subirImagen(files.fotoCarnet2[0].buffer, "clientes/carnets");
+    if (files?.fotoCarnet2?.[0]) {
+      data.fotoCarnet2 = await subirImagen(
+        files.fotoCarnet2[0].buffer,
+        "clientes/carnets"
+      );
     }
 
     const updated = await prisma.client.update({
@@ -570,9 +614,12 @@ app.post(
 
 // ─── ACTUALIZACIÓN DEL FORMULARIO DEL CLIENTE ────────────────────────────────
 app.put("/clients/form/:token", async (req, res) => {
-  const client = await prisma.client.findUnique({ where: { token: req.params.token } });
+  const client = await prisma.client.findUnique({
+    where: { token: req.params.token },
+  });
   if (!client) return res.status(404).json({ error: "Link no válido" });
-  if (new Date() > client.expiresAt) return res.status(410).json({ error: "Este link ha expirado" });
+  if (new Date() > client.expiresAt)
+    return res.status(410).json({ error: "Este link ha expirado" });
 
   const {
     ci, nombres, apellidoPaterno, apellidoMaterno, sexo, ciudad,
@@ -596,7 +643,6 @@ app.put("/clients/form/:token", async (req, res) => {
     },
   });
 
-  // ── Generar credenciales automáticas (si no tiene) ──────────
   let username = updated.clientUsername;
   let password = "";
 
@@ -610,12 +656,15 @@ app.put("/clients/form/:token", async (req, res) => {
 
     username = baseUsername;
     let counter = 1;
-    while (await prisma.client.findFirst({ where: { clientUsername: username } })) {
+    while (
+      await prisma.client.findFirst({ where: { clientUsername: username } })
+    ) {
       username = `${baseUsername}${counter}`;
       counter++;
     }
 
-    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    const chars =
+      "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     for (let i = 0; i < 8; i++) {
       password += chars.charAt(Math.floor(Math.random() * chars.length));
     }
@@ -631,21 +680,17 @@ app.put("/clients/form/:token", async (req, res) => {
     });
   }
 
-  // ── Enviar credenciales SIEMPRE (usa los datos más recientes) ──
   const LINK_PORTAL = process.env.CLIENT_PORTAL_URL || "https://tudominio.com/cliente";
-  const nombreCompletoEnvio = updated.nombreCompleto || [updated.nombres, updated.apellidoPaterno, updated.apellidoMaterno].filter(Boolean).join(" ") || "Cliente";
+  const nombreCompletoEnvio =
+    updated.nombreCompleto ||
+    [updated.nombres, updated.apellidoPaterno, updated.apellidoMaterno]
+      .filter(Boolean)
+      .join(" ") ||
+    "Cliente";
   const emailEnvio = updated.email || "";
   const celularEnvio = updated.celular || "";
 
   console.log("⏰ Programando envío de credenciales en 5 segundos...");
-  console.log("📧 Datos para envío:", {
-    email: emailEnvio,
-    nombreCompleto: nombreCompletoEnvio,
-    username,
-    password,
-    linkPortal: LINK_PORTAL,
-    celular: celularEnvio,
-  });
 
   setTimeout(() => {
     console.log("🚀 Iniciando envío de credenciales...");
@@ -669,9 +714,8 @@ app.put("/clients/form/:token", async (req, res) => {
     )
       .then(() => console.log("✅ WhatsApp enviado correctamente"))
       .catch((err) => console.error("❌ Error al enviar WhatsApp:", err));
-  }, 5000); // 5 segundos para prueba (después cambiar a 10 * 60 * 1000)
+  }, 5000);
 
-  // ── Recrear tareas y entrega ──────────────────────────────
   await prisma.clienteTask.deleteMany({ where: { clienteId: updated.id } });
   await prisma.entrega.deleteMany({ where: { clienteId: updated.id } });
 
@@ -757,11 +801,9 @@ app.put("/clients/:id/regenerar", auth, async (req, res) => {
   );
 });
 
-// ✅ RUTA DE ELIMINACIÓN CORREGIDA
 app.delete("/clients/:id", auth, async (req, res) => {
   const id = Number(req.params.id);
 
-  // 1. Desvincula revistas y libros
   await prisma.magazine.updateMany({
     where: { clienteId: id },
     data: { clienteId: null },
@@ -771,13 +813,11 @@ app.delete("/clients/:id", auth, async (req, res) => {
     data: { clienteId: null },
   });
 
-  // 2. Elimina dependencias directas
   await prisma.mensaje.deleteMany({ where: { clienteId: id } });
   await prisma.libroDetalle.deleteMany({ where: { clienteId: id } });
   await prisma.clienteTask.deleteMany({ where: { clienteId: id } });
   await prisma.entrega.deleteMany({ where: { clienteId: id } });
 
-  // 3. Ahora sí borra el cliente
   await prisma.client.delete({ where: { id } });
 
   res.json({ ok: true });
@@ -807,9 +847,11 @@ app.post("/clients/:id/regenerar-credenciales", auth, async (req, res) => {
     .replace(/[\u0300-\u036f]/g, "");
 
   let counter = 1;
-  while (await prisma.client.findFirst({
-    where: { clientUsername: username, NOT: { id } },
-  })) {
+  while (
+    await prisma.client.findFirst({
+      where: { clientUsername: username, NOT: { id } },
+    })
+  ) {
     username = `${username.replace(/\d+$/, "")}${counter}`;
     counter++;
   }
@@ -830,21 +872,17 @@ app.post("/clients/:id/regenerar-credenciales", auth, async (req, res) => {
     },
   });
 
-  // ── Enviar credenciales automáticamente ────────────────────────
   const LINK_PORTAL = process.env.CLIENT_PORTAL_URL || "https://tudominio.com/cliente";
-  const nombreCompleto = cliente.nombreCompleto || [cliente.nombres, cliente.apellidoPaterno, cliente.apellidoMaterno].filter(Boolean).join(" ") || "Cliente";
+  const nombreCompleto =
+    cliente.nombreCompleto ||
+    [cliente.nombres, cliente.apellidoPaterno, cliente.apellidoMaterno]
+      .filter(Boolean)
+      .join(" ") ||
+    "Cliente";
   const emailCliente = cliente.email || "";
   const celularCliente = cliente.celular || "";
 
   console.log("⏰ Programando envío de credenciales en 5 segundos...");
-  console.log("📧 Datos para envío:", {
-    email: emailCliente,
-    nombreCompleto,
-    username,
-    password,
-    linkPortal: LINK_PORTAL,
-    celular: celularCliente,
-  });
 
   setTimeout(() => {
     console.log("🚀 Iniciando envío de credenciales...");
@@ -868,12 +906,12 @@ app.post("/clients/:id/regenerar-credenciales", auth, async (req, res) => {
     )
       .then(() => console.log("✅ WhatsApp enviado correctamente"))
       .catch((err) => console.error("❌ Error al enviar WhatsApp:", err));
-  }, 5000); // 5 segundos para prueba (después cambiar a 10 * 60 * 1000)
+  }, 5000);
 
   res.json({ clientUsername: username, clientPassword: password });
 });
 
-// ─── PEDIDOS (ADMIN) ─────────────────────────────────────────────────────────
+// ─── PEDIDOS (ADMIN) ──────────────────────────────────────────────────────────
 app.get("/pedidos", auth, async (req, res) => {
   const pedidos = await prisma.pedido.findMany({
     include: { cliente: true, items: true },
@@ -885,7 +923,15 @@ app.get("/pedidos", auth, async (req, res) => {
 app.get("/pedidos/:id", auth, async (req, res) => {
   const pedido = await prisma.pedido.findUnique({
     where: { id: Number(req.params.id) },
-    include: { cliente: true, items: { include: { revisiones: { orderBy: { creadoEn: "asc" } } } } },
+    include: {
+      cliente: true,
+      items: {
+        include: {
+          revisiones: { orderBy: { creadoEn: "asc" } },
+          edicion: { include: { magazine: true } },
+        },
+      },
+    },
   });
   if (!pedido) return res.status(404).json({ error: "Pedido no encontrado" });
   res.json(pedido);
@@ -894,32 +940,83 @@ app.get("/pedidos/:id", auth, async (req, res) => {
 app.put("/pedidos/:id/rechazar", auth, async (req, res) => {
   const id = Number(req.params.id);
   const { motivoRechazo } = req.body;
-  res.json(await prisma.pedido.update({
-    where: { id },
-    data: { estado: "rechazado", motivoRechazo },
-  }));
+  res.json(
+    await prisma.pedido.update({
+      where: { id },
+      data: { estado: "rechazado", motivoRechazo },
+    })
+  );
 });
 
 app.put("/pedidos/:id/completar", auth, async (req, res) => {
   const id = Number(req.params.id);
-  res.json(await prisma.pedido.update({
-    where: { id },
-    data: { estado: "completado" },
-  }));
+  res.json(
+    await prisma.pedido.update({
+      where: { id },
+      data: { estado: "completado" },
+    })
+  );
 });
 
-// ─── REVISIONES (ADMIN) ──────────────────────────────────────────────────────
+app.put("/pedidos/:id/ajustar-precio", auth, async (req, res) => {
+  const id = Number(req.params.id);
+  const { montoTotal } = req.body;
+  res.json(
+    await prisma.pedido.update({
+      where: { id },
+      data: { montoTotal: Number(montoTotal) },
+    })
+  );
+});
+
+// ─── ASIGNAR ARTÍCULO A REVISTA/EDICIÓN ──────────────────────────────────────
+app.put("/items/:id/asignar-revista", auth, async (req, res) => {
+  const itemId = Number(req.params.id);
+  const { edicionId } = req.body;
+
+  const item = await prisma.itemPedido.findUnique({
+    where: { id: itemId },
+    include: { pedido: true },
+  });
+  if (!item) return res.status(404).json({ error: "Ítem no encontrado" });
+
+  const clienteId = item.pedido.clienteId;
+  const existente = await prisma.itemPedido.findFirst({
+    where: {
+      edicionId,
+      pedido: { clienteId },
+      NOT: { id: itemId },
+    },
+  });
+  if (existente)
+    return res
+      .status(400)
+      .json({ error: "El autor ya tiene un artículo en esta edición" });
+
+  const updated = await prisma.itemPedido.update({
+    where: { id: itemId },
+    data: { edicionId },
+    include: { edicion: { include: { magazine: true } } },
+  });
+  res.json(updated);
+});
+
+// ─── REVISIONES (ADMIN) ───────────────────────────────────────────────────────
 app.post("/items/:id/revision", auth, upload.array("archivos", 5), async (req: any, res) => {
   const itemId = Number(req.params.id);
   const { nota } = req.body;
   const archivos: string[] = [];
   if (req.files) {
     for (const file of req.files) {
-      const url = await subirImagen(file.buffer, "revisiones", "auto", file.originalname.split(".").pop());
+      const url = await subirImagen(
+        file.buffer,
+        "revisiones",
+        "auto",
+        file.originalname.split(".").pop()
+      );
       archivos.push(url);
     }
   }
-  // Determinar última ronda
   const ultimaRevision = await prisma.revisionItem.findFirst({
     where: { itemPedidoId: itemId },
     orderBy: { ronda: "desc" },
@@ -935,7 +1032,11 @@ app.post("/items/:id/revision", auth, upload.array("archivos", 5), async (req: a
       archivos,
     },
   });
-  // Notificar al cliente
+  await prisma.itemPedido.update({
+    where: { id: itemId },
+    data: { estado: "en revision" },
+  });
+
   try {
     const item = await prisma.itemPedido.findUnique({
       where: { id: itemId },
@@ -957,7 +1058,7 @@ app.post("/items/:id/revision", auth, upload.array("archivos", 5), async (req: a
   res.json(revision);
 });
 
-// ─── COMPLETAR ÍTEM ──────────────────────────────────────────────────────────
+// ─── COMPLETAR ÍTEM ───────────────────────────────────────────────────────────
 app.put("/items/:id/completar", auth, async (req, res) => {
   const id = Number(req.params.id);
   const item = await prisma.itemPedido.update({
@@ -992,7 +1093,10 @@ app.get("/mensajes", auth, async (req, res) => {
 
   const resultado = clientes.map((c) => ({
     id: c.id,
-    nombre: c.nombreCompleto || [c.nombres, c.apellidoPaterno, c.apellidoMaterno].filter(Boolean).join(" ") || "Sin nombre",
+    nombre:
+      c.nombreCompleto ||
+      [c.nombres, c.apellidoPaterno, c.apellidoMaterno].filter(Boolean).join(" ") ||
+      "Sin nombre",
     fotografia: c.fotografia,
     ultimoMensaje: c.mensajes[0] || null,
     noLeidos: c._count.mensajes,
@@ -1123,17 +1227,15 @@ app.post("/cliente/mensajes", authCliente, async (req: any, res) => {
     },
   });
 
-  // Notificar al admin SOLO si no hay mensajes sin leer del cliente
   try {
     const noLeidos = await prisma.mensaje.count({
-      where: { 
-        clienteId: req.clienteId, 
+      where: {
+        clienteId: req.clienteId,
         emisor: "cliente",
-        leido: false 
+        leido: false,
       },
     });
 
-    // Si solo hay 1 mensaje no leído (el que se acaba de crear), notificar
     if (noLeidos === 1) {
       const { notificarAdminMensaje } = await import("./whatsapp");
       const cliente = await prisma.client.findUnique({
@@ -1166,7 +1268,8 @@ app.put("/cliente/password", authCliente, async (req: any, res) => {
     return res.status(400).json({ error: "No tienes contraseña configurada" });
 
   const valida = await bcrypt.compare(passwordActual, cliente.clientPassword);
-  if (!valida) return res.status(401).json({ error: "Contraseña actual incorrecta" });
+  if (!valida)
+    return res.status(401).json({ error: "Contraseña actual incorrecta" });
 
   const hashedPassword = await bcrypt.hash(passwordNueva, 10);
   await prisma.client.update({
@@ -1186,7 +1289,9 @@ app.put("/cliente/datos", authCliente, async (req: any, res) => {
     return res.status(400).json({ error: "No tienes permiso para editar datos" });
 
   const ahora = new Date();
-  const limite = new Date(cliente.credencialesGeneradaAt.getTime() + 10 * 60 * 60 * 1000);
+  const limite = new Date(
+    cliente.credencialesGeneradaAt.getTime() + 10 * 60 * 60 * 1000
+  );
   if (ahora > limite) {
     return res.status(403).json({
       error: "El tiempo de edición ha vencido. Contacta al administrador.",
@@ -1217,87 +1322,127 @@ app.put("/cliente/datos", authCliente, async (req: any, res) => {
   res.json(updated);
 });
 
-app.post("/cliente/archivos/libro/:libroId", authCliente, upload.single("archivo"), async (req: any, res) => {
-  const libroId = Number(req.params.libroId);
-  const { titulo, notas } = req.body;
+app.post(
+  "/cliente/archivos/libro/:libroId",
+  authCliente,
+  upload.single("archivo"),
+  async (req: any, res) => {
+    const libroId = Number(req.params.libroId);
+    const { titulo, notas } = req.body;
 
-  const archivoUrl = req.file
-    ? await subirImagen(req.file.buffer, "clientes/libros", "auto", req.file.originalname.split(".").pop())
-    : null;
+    const archivoUrl = req.file
+      ? await subirImagen(
+          req.file.buffer,
+          "clientes/libros",
+          "auto",
+          req.file.originalname.split(".").pop()
+        )
+      : null;
 
-  const archivo = await prisma.clienteArchivo.create({
-    data: {
-      clienteId: req.clienteId,
-      tipo: "libro",
-      referenciaId: libroId,
-      titulo: titulo || null,
-      notas: notas || null,
-      archivoUrl,
-    },
-  });
-  res.json(archivo);
-});
+    const archivo = await prisma.clienteArchivo.create({
+      data: {
+        clienteId: req.clienteId,
+        tipo: "libro",
+        referenciaId: libroId,
+        titulo: titulo || null,
+        notas: notas || null,
+        archivoUrl,
+      },
+    });
+    res.json(archivo);
+  }
+);
 
-app.post("/cliente/archivos/articulo/:articuloId", authCliente, upload.single("archivo"), async (req: any, res) => {
-  const articuloId = Number(req.params.articuloId);
-  const { titulo, notas } = req.body;
+app.post(
+  "/cliente/archivos/articulo/:articuloId",
+  authCliente,
+  upload.single("archivo"),
+  async (req: any, res) => {
+    const articuloId = Number(req.params.articuloId);
+    const { titulo, notas } = req.body;
 
-  const archivoUrl = req.file
-    ? await subirImagen(req.file.buffer, "clientes/articulos", "auto", req.file.originalname.split(".").pop())
-    : null;
+    const archivoUrl = req.file
+      ? await subirImagen(
+          req.file.buffer,
+          "clientes/articulos",
+          "auto",
+          req.file.originalname.split(".").pop()
+        )
+      : null;
 
-  const archivo = await prisma.clienteArchivo.create({
-    data: {
-      clienteId: req.clienteId,
-      tipo: "articulo",
-      referenciaId: articuloId,
-      titulo: titulo || null,
-      notas: notas || null,
-      archivoUrl,
-    },
-  });
-  res.json(archivo);
-});
+    const archivo = await prisma.clienteArchivo.create({
+      data: {
+        clienteId: req.clienteId,
+        tipo: "articulo",
+        referenciaId: articuloId,
+        titulo: titulo || null,
+        notas: notas || null,
+        archivoUrl,
+      },
+    });
+    res.json(archivo);
+  }
+);
 
-app.post("/cliente/archivos/director", authCliente, upload.single("archivo"), async (req: any, res) => {
-  const { titulo, notas } = req.body;
+app.post(
+  "/cliente/archivos/director",
+  authCliente,
+  upload.single("archivo"),
+  async (req: any, res) => {
+    const { titulo, notas } = req.body;
 
-  const archivoUrl = req.file
-    ? await subirImagen(req.file.buffer, "clientes/director", "auto", req.file.originalname.split(".").pop())
-    : null;
+    const archivoUrl = req.file
+      ? await subirImagen(
+          req.file.buffer,
+          "clientes/director",
+          "auto",
+          req.file.originalname.split(".").pop()
+        )
+      : null;
 
-  const archivo = await prisma.clienteArchivo.create({
-    data: {
-      clienteId: req.clienteId,
-      tipo: "director",
-      titulo: titulo || null,
-      notas: notas || null,
-      archivoUrl,
-    },
-  });
-  res.json(archivo);
-});
+    const archivo = await prisma.clienteArchivo.create({
+      data: {
+        clienteId: req.clienteId,
+        tipo: "director",
+        titulo: titulo || null,
+        notas: notas || null,
+        archivoUrl,
+      },
+    });
+    res.json(archivo);
+  }
+);
 
-app.post("/cliente/archivos/fundador/:articuloId", authCliente, upload.single("archivo"), async (req: any, res) => {
-  const articuloId = Number(req.params.articuloId);
-  const { titulo, notas } = req.body;
+app.post(
+  "/cliente/archivos/fundador/:articuloId",
+  authCliente,
+  upload.single("archivo"),
+  async (req: any, res) => {
+    const articuloId = Number(req.params.articuloId);
+    const { titulo, notas } = req.body;
 
-  const archivoUrl = req.file
-    ? await subirImagen(req.file.buffer, "clientes/fundador", "auto", req.file.originalname.split(".").pop())
-    : null;
+    const archivoUrl = req.file
+      ? await subirImagen(
+          req.file.buffer,
+          "clientes/fundador",
+          "auto",
+          req.file.originalname.split(".").pop()
+        )
+      : null;
 
-  const archivo = await prisma.clienteArchivo.create({
-    data: {
-      clienteId: req.clienteId,
-      tipo: "fundador",
-      referenciaId: articuloId,
-      titulo: titulo || null,
-      notas: notas || null,
-      archivoUrl,
-    },
-  });
-  res.json(archivo);
-});
+    const archivo = await prisma.clienteArchivo.create({
+      data: {
+        clienteId: req.clienteId,
+        tipo: "fundador",
+        referenciaId: articuloId,
+        titulo: titulo || null,
+        notas: notas || null,
+        archivoUrl,
+      },
+    });
+    res.json(archivo);
+  }
+);
 
 app.get("/cliente/archivos", authCliente, async (req: any, res) => {
   const archivos = await prisma.clienteArchivo.findMany({
@@ -1307,11 +1452,10 @@ app.get("/cliente/archivos", authCliente, async (req: any, res) => {
   res.json(archivos);
 });
 
-// ─── PEDIDOS (CLIENTE) ───────────────────────────────────────────────────────
+// ─── PEDIDOS (CLIENTE) ────────────────────────────────────────────────────────
 app.post("/cliente/pedidos", authCliente, async (req: any, res) => {
   const { items } = req.body;
-  
-  // Calcular monto total (precio fijo por tipo, ajusta según tu catálogo)
+
   const precios: Record<string, number> = {
     libroA: 1500,
     libroB: 1200,
@@ -1320,7 +1464,10 @@ app.post("/cliente/pedidos", authCliente, async (req: any, res) => {
     fundador: 800,
     autor: 500,
   };
-  const montoTotal = items.reduce((sum: number, item: any) => sum + (precios[item.tipo] || 0), 0);
+  const montoTotal = items.reduce(
+    (sum: number, item: any) => sum + (precios[item.tipo] || 0),
+    0
+  );
 
   const pedido = await prisma.pedido.create({
     data: {
@@ -1345,12 +1492,15 @@ app.post("/cliente/pedidos", authCliente, async (req: any, res) => {
     include: { items: true },
   });
 
-  // Notificar al admin
   try {
     const { notificarAdminMensaje } = await import("./whatsapp");
-    const cliente = await prisma.client.findUnique({ where: { id: req.clienteId } });
+    const cliente = await prisma.client.findUnique({
+      where: { id: req.clienteId },
+    });
     const nombre = cliente?.nombreCompleto || "Cliente";
-    await notificarAdminMensaje(`Nuevo pedido de ${nombre} (${items.length} ítems) por Bs ${montoTotal}`);
+    await notificarAdminMensaje(
+      `Nuevo pedido de ${nombre} (${items.length} ítems) por Bs ${montoTotal}`
+    );
   } catch (err) {
     console.warn("No se pudo notificar:", err);
   }
@@ -1370,52 +1520,66 @@ app.get("/cliente/pedidos", authCliente, async (req: any, res) => {
 app.get("/cliente/pedidos/:id", authCliente, async (req: any, res) => {
   const pedido = await prisma.pedido.findFirst({
     where: { id: Number(req.params.id), clienteId: req.clienteId },
-    include: { items: { include: { revisiones: { orderBy: { creadoEn: "asc" } } } } },
+    include: {
+      items: { include: { revisiones: { orderBy: { creadoEn: "asc" } } } },
+    },
   });
   if (!pedido) return res.status(404).json({ error: "Pedido no encontrado" });
   res.json(pedido);
 });
 
-// ─── REVISIONES (CLIENTE) ────────────────────────────────────────────────────
-app.post("/cliente/items/:id/revision", authCliente, upload.array("archivos", 5), async (req: any, res) => {
-  const itemId = Number(req.params.id);
-  const { nota } = req.body;
-  if (!nota) return res.status(400).json({ error: "Debes escribir una observación" });
-  const archivos: string[] = [];
-  if (req.files) {
-    for (const file of req.files) {
-      const url = await subirImagen(file.buffer, "revisiones", "auto", file.originalname.split(".").pop());
-      archivos.push(url);
+// ─── REVISIONES (CLIENTE) ─────────────────────────────────────────────────────
+app.post(
+  "/cliente/items/:id/revision",
+  authCliente,
+  upload.array("archivos", 5),
+  async (req: any, res) => {
+    const itemId = Number(req.params.id);
+    const { nota } = req.body;
+    if (!nota) return res.status(400).json({ error: "Debes escribir una observación" });
+    const archivos: string[] = [];
+    if (req.files) {
+      for (const file of req.files) {
+        const url = await subirImagen(
+          file.buffer,
+          "revisiones",
+          "auto",
+          file.originalname.split(".").pop()
+        );
+        archivos.push(url);
+      }
     }
-  }
-  const ultimaRevision = await prisma.revisionItem.findFirst({
-    where: { itemPedidoId: itemId },
-    orderBy: { ronda: "desc" },
-  });
-  const nuevaRonda = (ultimaRevision?.ronda || 0) + 1;
-
-  const revision = await prisma.revisionItem.create({
-    data: {
-      itemPedidoId: itemId,
-      ronda: nuevaRonda,
-      autorTipo: "cliente",
-      nota,
-      archivos,
-    },
-  });
-  // Notificar al admin
-  try {
-    const { notificarAdminMensaje } = await import("./whatsapp");
-    const item = await prisma.itemPedido.findUnique({
-      where: { id: itemId },
-      include: { pedido: { include: { cliente: true } } },
+    const ultimaRevision = await prisma.revisionItem.findFirst({
+      where: { itemPedidoId: itemId },
+      orderBy: { ronda: "desc" },
     });
-    await notificarAdminMensaje(`El cliente ${item?.pedido?.cliente?.nombreCompleto || "Cliente"} envió observaciones en un ítem`);
-  } catch (err) {
-    console.warn("No se pudo notificar:", err);
+    const nuevaRonda = (ultimaRevision?.ronda || 0) + 1;
+
+    const revision = await prisma.revisionItem.create({
+      data: {
+        itemPedidoId: itemId,
+        ronda: nuevaRonda,
+        autorTipo: "cliente",
+        nota,
+        archivos,
+      },
+    });
+
+    try {
+      const { notificarAdminMensaje } = await import("./whatsapp");
+      const item = await prisma.itemPedido.findUnique({
+        where: { id: itemId },
+        include: { pedido: { include: { cliente: true } } },
+      });
+      await notificarAdminMensaje(
+        `El cliente ${item?.pedido?.cliente?.nombreCompleto || "Cliente"} envió observaciones en un ítem`
+      );
+    } catch (err) {
+      console.warn("No se pudo notificar:", err);
+    }
+    res.json(revision);
   }
-  res.json(revision);
-});
+);
 
 // ─── ENTREGAS ─────────────────────────────────────────────────────────────────
 app.get("/entregas", auth, async (req, res) => {
@@ -1453,7 +1617,13 @@ app.get("/search", auth, async (req, res) => {
       where: {
         OR: [
           { director: { name: { contains: q, mode: "insensitive" } } },
-          { articles: { some: { authors: { some: { name: { contains: q, mode: "insensitive" } } } } } },
+          {
+            articles: {
+              some: {
+                authors: { some: { name: { contains: q, mode: "insensitive" } } },
+              },
+            },
+          },
         ],
       },
       include: { director: true, articles: { include: { authors: true } } },
@@ -1509,8 +1679,8 @@ app.get("/stats", auth, async (req, res) => {
   ]);
 
   const meses = [
-    "Enero","Febrero","Marzo","Abril","Mayo","Junio",
-    "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
   ];
 
   res.json({
@@ -1547,7 +1717,9 @@ app.get("/stats", auth, async (req, res) => {
 // ─── DAY NOTES ────────────────────────────────────────────────────────────────
 app.get("/day-notes", auth, async (req, res) => {
   const userId = (req as any).user.id;
-  res.json(await prisma.dayNote.findMany({ where: { userId }, orderBy: { fecha: "asc" } }));
+  res.json(
+    await prisma.dayNote.findMany({ where: { userId }, orderBy: { fecha: "asc" } })
+  );
 });
 app.post("/day-notes", auth, async (req, res) => {
   const userId = (req as any).user.id;
@@ -1570,9 +1742,12 @@ app.get("/clients/:id/libro-detalles", auth, async (req, res) => {
 });
 
 app.post("/clients/form/:token/libro-detalles", async (req, res) => {
-  const client = await prisma.client.findUnique({ where: { token: req.params.token } });
+  const client = await prisma.client.findUnique({
+    where: { token: req.params.token },
+  });
   if (!client) return res.status(404).json({ error: "Link no válido" });
-  if (new Date() > client.expiresAt) return res.status(410).json({ error: "Link expirado" });
+  if (new Date() > client.expiresAt)
+    return res.status(410).json({ error: "Link expirado" });
 
   const { detalles } = req.body;
   await prisma.libroDetalle.deleteMany({ where: { clienteId: client.id } });
